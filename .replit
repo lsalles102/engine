@@ -4,6 +4,16 @@ modules = ["python-3.11", "web", "bash"]
 channel = "stable-24_05"
 
 [workflows]
+runButton = "Run PyCheatEngine"
+
+[[workflows.workflow]]
+name = "Run PyCheatEngine"
+author = 44250898
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
 
 [[ports]]
 localPort = 5000
