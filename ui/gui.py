@@ -133,9 +133,13 @@ class CheatEngineGUI:
         # Frame de dicas
         tips_frame = ttk.Frame(scan_group)
         tips_frame.pack(fill=tk.X, pady=2)
-        tips_label = ttk.Label(tips_frame, text="💡 DICA: Para próximo scan, altere o valor no jogo primeiro!", 
+        tips_label1 = ttk.Label(tips_frame, text="💡 DICA: Para próximo scan, altere o valor no jogo primeiro!", 
                               font=('TkDefaultFont', 8), foreground='blue')
-        tips_label.pack(anchor=tk.W)
+        tips_label1.pack(anchor=tk.W)
+        
+        tips_label2 = ttk.Label(tips_frame, text="🎯 MUNIÇÕES/HP: Use 'decreased' em vez de 'exact' após atirar/perder vida", 
+                              font=('TkDefaultFont', 8), foreground='green')
+        tips_label2.pack(anchor=tk.W)
         
         ttk.Label(scan_group, text="Tipo de Dado:").pack(anchor=tk.W)
         self.data_type_var = tk.StringVar(value="int32")
@@ -576,6 +580,28 @@ class CheatEngineGUI:
                 raise RuntimeError("Nenhum resultado de scan anterior")
                 
             print(f"[GUI] Scanner válido, {len(self.scanner.scan_results)} resultados anteriores")
+            
+            # Para scans exact, faz uma pré-verificação para detectar valores instáveis
+            if scan_type.value == "exact" and value is not None:
+                print(f"[GUI] Fazendo pré-verificação para valor exact: {value}")
+                stable_results = []
+                unstable_count = 0
+                
+                # Verifica se os valores estão estáveis
+                for i, result in enumerate(self.scanner.scan_results[:10]):  # Testa apenas os primeiros 10
+                    current_value = self.scanner._read_value_at_address(result.address, result.data_type)
+                    if current_value is not None:
+                        if current_value == value:
+                            stable_results.append(result)
+                        elif current_value != result.value:
+                            unstable_count += 1
+                            print(f"[GUI] Valor instável detectado no endereço 0x{result.address:X}: {result.value} -> {current_value}")
+                
+                if len(stable_results) == 0 and unstable_count > 0:
+                    suggestion = f"DICA: Os valores parecem estar mudando. Tente usar 'changed' ou 'decreased' em vez de 'exact'"
+                    print(f"[GUI] {suggestion}")
+                    if hasattr(self, 'root') and self.root:
+                        self.root.after(0, self.update_status, suggestion)
             
             results = self.scanner.next_scan(value, scan_type)
             
