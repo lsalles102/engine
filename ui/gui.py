@@ -198,12 +198,15 @@ class CheatEngineGUI:
         self.results_tree = ttk.Treeview(results_group, columns=columns, show="headings", height=15)
         
         self.results_tree.heading("address", text="Endereço")
-        self.results_tree.heading("value", text="Valor")
+        self.results_tree.heading("value", text="Valor Atual")
         self.results_tree.heading("type", text="Tipo")
         
         self.results_tree.column("address", width=120)
         self.results_tree.column("value", width=100)
         self.results_tree.column("type", width=80)
+        
+        # Configura cores de seleção
+        self.results_tree.configure(selectmode='browse')  # Permite apenas uma seleção
         
         # Scrollbar para resultados
         results_scroll = ttk.Scrollbar(results_group, orient=tk.VERTICAL, command=self.results_tree.yview)
@@ -212,8 +215,9 @@ class CheatEngineGUI:
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         results_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Bind para duplo clique
+        # Bind para duplo clique e seleção simples
         self.results_tree.bind('<Double-1>', self.on_result_double_click)
+        self.results_tree.bind('<ButtonRelease-1>', self.on_result_select)
         
         # Controles de valor
         value_frame = ttk.Frame(right_frame)
@@ -221,10 +225,17 @@ class CheatEngineGUI:
         
         ttk.Label(value_frame, text="Novo Valor:").pack(side=tk.LEFT)
         self.new_value_var = tk.StringVar()
-        ttk.Entry(value_frame, textvariable=self.new_value_var, width=15).pack(side=tk.LEFT, padx=5)
+        self.new_value_entry = ttk.Entry(value_frame, textvariable=self.new_value_var, width=20)
+        self.new_value_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Bind Enter para escrever valor rapidamente
+        self.new_value_entry.bind('<Return>', lambda e: self.write_selected_value())
         
         ttk.Button(value_frame, text="Escrever Valor", 
                   command=self.write_selected_value).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(value_frame, text="Limpar", 
+                  command=lambda: self.new_value_var.set("")).pack(side=tk.LEFT, padx=2)
         
         # Checkbox para atualização automática
         ttk.Checkbutton(value_frame, text="Atualização Automática", 
@@ -744,6 +755,17 @@ class CheatEngineGUI:
             self.results_tree.delete(item)
         self.result_count_label.config(text="")
     
+    def on_result_select(self, event):
+        """Callback para seleção simples de resultado"""
+        selection = self.results_tree.selection()
+        if selection:
+            item = self.results_tree.item(selection[0])
+            current_value = item['values'][1]
+            
+            # Pré-preenche o campo de novo valor apenas se estiver vazio
+            if not self.new_value_var.get():
+                self.new_value_var.set(str(current_value))
+
     def on_result_double_click(self, event):
         """Callback para duplo clique em resultado"""
         selection = self.results_tree.selection()
@@ -754,17 +776,21 @@ class CheatEngineGUI:
             
             # Pré-preenche o campo de novo valor
             self.new_value_var.set(str(current_value))
+            
+            # Foca no campo de entrada e seleciona todo o texto
+            self.new_value_entry.focus_set()
+            self.new_value_entry.select_range(0, tk.END)
     
     def write_selected_value(self):
         """Escreve novo valor no endereço selecionado"""
         selection = self.results_tree.selection()
         if not selection:
-            messagebox.showerror("Erro", "Selecione um resultado primeiro")
+            messagebox.showerror("Erro", "Selecione um resultado na lista primeiro")
             return
         
-        new_value = self.new_value_var.get()
+        new_value = self.new_value_var.get().strip()
         if not new_value:
-            messagebox.showerror("Erro", "Digite um novo valor")
+            messagebox.showerror("Erro", "Digite um novo valor no campo 'Novo Valor'")
             return
         
         try:
