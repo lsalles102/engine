@@ -159,6 +159,242 @@ class MemoryScanner:
         self.scan_progress = 0
         
         try:
+            # Configura thread de scan
+            scan_thread = threading.Thread(
+                target=self._scan_worker,
+                args=(value, data_type, scan_type, None)
+            )
+            scan_thread.daemon = True
+            scan_thread.start()
+            scan_thread.join()
+            
+            return self.scan_results.copy()
+            
+        finally:
+            self.is_scanning = False
+    
+    def next_scan(self, value: Any, scan_type: ScanType) -> List[ScanResult]:
+        """
+        Realiza scan subsequente baseado nos resultados anteriores
+        
+        Args:
+            value: Valor a procurar
+            scan_type: Tipo de comparação
+            
+        Returns:
+            List[ScanResult]: Lista de resultados filtrados
+        """
+        if not self.scan_results:
+            raise RuntimeError("Nenhum scan anterior encontrado. Execute first_scan primeiro.")
+        
+        if not self.memory_manager.is_attached():
+            raise RuntimeError("Não está anexado a nenhum processo")
+        
+        self.is_scanning = True
+        self.scan_progress = 0
+        
+        try:
+            new_results = []
+            total_results = len(self.scan_results)
+            
+            for i, result in enumerate(self.scan_results):
+                if not self.is_scanning:
+                    break
+                
+                # Atualiza progresso
+                progress = int((i / total_results) * 100)
+                if progress != self.scan_progress:
+                    self.scan_progress = progress
+                    if self.progress_callback:
+                        self.progress_callback(progress)
+                
+                # Lê valor atual
+                current_value = self._read_value_at_address(result.address, result.data_type)
+                
+                # Compara valores
+                if self._compare_values(current_value, value, scan_type, result.value):
+                    result.update_value(current_value)
+                    new_results.append(result)
+            
+            self.scan_results = new_results
+            self.scan_progress = 100
+            if self.progress_callback:
+                self.progress_callback(100)
+            
+            return self.scan_results.copy()
+            
+        finally:
+            self.is_scanning = False
+    
+    def _scan_worker(self, value: Any, data_type: DataType, scan_type: ScanType, previous_results: Optional[List[ScanResult]]):
+        """Worker thread para realizar o scan"""
+        try:
+            data_size = self._get_data_size(data_type)
+            current_address = self.start_address
+            total_range = self.end_address - self.start_address
+            chunk_size = 4096  # 4KB chunks
+            
+            while current_address < self.end_address and self.is_scanning:
+                # Atualiza progresso
+                progress = int(((current_address - self.start_address) / total_range) * 100)
+                if progress != self.scan_progress:
+                    self.scan_progress = progress
+                    if self.progress_callback:
+                        self.progress_callback(progress)
+                
+                # Lê chunk de memória
+                chunk_data = self.memory_manager.read_memory(current_address, chunk_size)
+                if not chunk_data:
+                    current_address += chunk_size
+                    continue
+                
+                # Processa cada posição possível no chunk
+                for offset in range(0, len(chunk_data) - data_size + 1, self.alignment):
+                    if not self.is_scanning:
+                        break
+                    
+                    address = current_address + offset
+                    current_value = self._read_value_at_address(address, data_type)
+                    
+                    if current_value is not None:
+                        if self._compare_values(current_value, value, scan_type):
+                            result = ScanResult(address, current_value, data_type)
+                            self.scan_results.append(result)
+                            
+                            # Limita resultados para evitar sobrecarga
+                            if len(self.scan_results) >= 10000:
+                                self.is_scanning = False
+                                break
+                
+                current_address += chunk_size
+            
+            self.scan_progress = 100
+            if self.progress_callback:
+                self.progress_callback(100)
+                
+        except Exception as e:
+            print(f"Erro durante scan: {e}")
+        finally:
+            self.is_scanning = False
+    
+    def cancel_scan(self):
+        """Cancela o scan atual"""
+        self.is_scanning = False
+    
+    def update_results(self) -> int:
+        """
+        Atualiza os valores de todos os resultados
+        
+        Returns:
+            int: Número de resultados ainda válidos
+        """
+        if not self.scan_results:
+            return 0
+        
+        valid_results = []
+        
+        for result in self.scan_results:
+            current_value = self._read_value_at_address(result.address, result.data_type)
+            if current_value is not None:
+                result.update_value(current_value)
+                valid_results.append(result)
+        
+        self.scan_results = valid_results
+        return len(self.scan_results)
+    
+    def get_scan_summary(self) -> Dict[str, Any]:
+        """Retorna resumo do scan atual"""
+        return {
+            'total_results': len(self.scan_results),
+            'is_scanning': self.is_scanning,
+            'progress': self.scan_progress,
+            'scan_range': {
+                'start': hex(self.start_address),
+                'end': hex(self.end_address)
+            },
+            'alignment': self.alignment
+        }
+    
+    def export_results(self, filename: str) -> bool:
+        """
+        Exporta resultados para arquivo JSON
+        
+        Args:
+            filename: Nome do arquivo
+            
+        Returns:
+            bool: True se exportou com sucesso
+        """
+        try:
+            import json
+            
+            data = {
+                'timestamp': time.time(),
+                'process_info': self.memory_manager.get_process_info(),
+                'scan_summary': self.get_scan_summary(),
+                'results': []
+            }
+            
+            for result in self.scan_results:
+                data['results'].append({
+                    'address': hex(result.address),
+                    'value': result.value,
+                    'previous_value': result.previous_value,
+                    'data_type': result.data_type.value
+                })
+            
+            with open(filename, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao exportar resultados: {e}")
+            return False
+    
+    def import_results(self, filename: str) -> bool:
+        """
+        Importa resultados de arquivo JSON
+        
+        Args:
+            filename: Nome do arquivo
+            
+        Returns:
+            bool: True se importou com sucesso
+        """
+        try:
+            import json
+            
+            with open(filename, 'r') as f:
+                data = json.load(f)
+            
+            self.scan_results.clear()
+            
+            for result_data in data.get('results', []):
+                address = int(result_data['address'], 16)
+                value = result_data['value']
+                data_type = DataType(result_data['data_type'])
+                
+                result = ScanResult(address, value, data_type)
+                result.previous_value = result_data.get('previous_value')
+                self.scan_results.append(result)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao importar resultados: {e}")
+            return False
+        Returns:
+            List[ScanResult]: Lista de resultados encontrados
+        """
+        if not self.memory_manager.is_attached():
+            raise RuntimeError("Não está anexado a nenhum processo")
+        
+        self.scan_results.clear()
+        self.is_scanning = True
+        self.scan_progress = 0
+        
+        try:
             step_size = self._get_data_size(data_type)
             total_addresses = (self.end_address - self.start_address) // step_size
             checked_addresses = 0

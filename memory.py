@@ -125,19 +125,27 @@ class MemoryManager:
             raise RuntimeError("Não está anexado a nenhum processo")
         
         try:
-            buffer = ctypes.create_string_buffer(size)
-            bytes_read = ctypes.c_size_t()
-            
-            success = kernel32.ReadProcessMemory(
-                self.process_handle,
-                ctypes.c_void_p(address),
-                buffer,
-                size,
-                ctypes.byref(bytes_read)
-            )
-            
-            if success and bytes_read.value == size:
-                return buffer.raw
+            if IS_WINDOWS:
+                buffer = ctypes.create_string_buffer(size)
+                bytes_read = ctypes.c_size_t()
+                
+                success = kernel32.ReadProcessMemory(
+                    self.process_handle,
+                    ctypes.c_void_p(address),
+                    buffer,
+                    size,
+                    ctypes.byref(bytes_read)
+                )
+                
+                if success and bytes_read.value == size:
+                    return buffer.raw
+                return None
+                
+            elif IS_LINUX:
+                # Linux: lê do arquivo /proc/PID/mem
+                self.mem_file.seek(address)
+                data = self.mem_file.read(size)
+                return data if len(data) == size else None
             
             return None
             
