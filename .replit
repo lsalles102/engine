@@ -1,4 +1,4 @@
-modules = ["python-3.11"]
+modules = ["python-3.11", "bash"]
 
 [nix]
 channel = "stable-24_05"
@@ -21,4 +21,5 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python demo_app.py"
+args = "python main.py --gui"
+waitForPort = 5000
