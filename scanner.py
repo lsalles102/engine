@@ -66,17 +66,35 @@ class MemoryScanner:
 
     def set_scan_range(self, start_address: int, end_address: int):
         """Define o intervalo de endereços para scan"""
-        # Validação para evitar overflow
-        if start_address < 0:
-            start_address = 0x10000
-        if end_address < 0 or end_address > 0x7FFFFFFF:
-            end_address = 0x7FFFFFFF
-        if start_address >= end_address:
-            start_address = 0x10000
-            end_address = 0x7FFFFFFF
+        # Validação mais rigorosa para evitar overflow
+        try:
+            # Converte para int se necessário e valida
+            start_address = int(start_address) if start_address is not None else 0x10000
+            end_address = int(end_address) if end_address is not None else 0x7FFFFFFF
+            
+            # Limites seguros
+            min_address = 0x10000
+            max_address = 0x7FFFFFFF
+            
+            if start_address < min_address:
+                start_address = min_address
+            if start_address > max_address:
+                start_address = min_address
+                
+            if end_address < min_address or end_address > max_address:
+                end_address = max_address
+            if end_address <= start_address:
+                end_address = start_address + 0x1000000  # 16MB por padrão
+                if end_address > max_address:
+                    end_address = max_address
 
-        self.start_address = start_address
-        self.end_address = end_address
+            self.start_address = start_address
+            self.end_address = end_address
+            
+        except (ValueError, TypeError, OverflowError):
+            # Define valores padrão seguros em caso de erro
+            self.start_address = 0x10000
+            self.end_address = 0x7FFFFFFF
 
     def _get_data_size(self, data_type: DataType) -> int:
         """Retorna o tamanho em bytes do tipo de dado"""
@@ -93,21 +111,41 @@ class MemoryScanner:
     def _read_value_at_address(self, address: int, data_type: DataType) -> Any:
         """Lê um valor específico no endereço dado"""
         try:
+            # Validação do endereço
+            if address < 0 or address > 0x7FFFFFFFFFFFFFFF:
+                return None
+                
             if data_type == DataType.INT32:
-                return self.memory_manager.read_int32(address)
+                value = self.memory_manager.read_int32(address)
+                # Validação do valor INT32
+                if value is not None and (value < -2147483648 or value > 2147483647):
+                    return None
+                return value
             elif data_type == DataType.INT64:
-                return self.memory_manager.read_int64(address)
+                value = self.memory_manager.read_int64(address)
+                # Validação do valor INT64
+                if value is not None and (value < -9223372036854775808 or value > 9223372036854775807):
+                    return None
+                return value
             elif data_type == DataType.FLOAT:
-                return self.memory_manager.read_float(address)
+                value = self.memory_manager.read_float(address)
+                # Validação do valor FLOAT
+                if value is not None and (abs(value) > 3.4e38 or (value != 0 and abs(value) < 1.2e-38)):
+                    return None
+                return value
             elif data_type == DataType.DOUBLE:
-                return self.memory_manager.read_double(address)
+                value = self.memory_manager.read_double(address)
+                # Validação do valor DOUBLE
+                if value is not None and abs(value) > 1.7e308:
+                    return None
+                return value
             elif data_type == DataType.STRING:
                 return self.memory_manager.read_string(address, 64)
             elif data_type == DataType.BYTES:
                 return self.memory_manager.read_memory(address, 4)
 
             return None
-        except:
+        except (OverflowError, ValueError, struct.error, TypeError, OSError):
             return None
 
     def _compare_values(self, current_value: Any, target_value: Any, 
@@ -117,14 +155,30 @@ class MemoryScanner:
             if current_value is None:
                 return False
 
+            # Validação adicional para evitar overflow em comparações
+            if isinstance(current_value, (int, float)) and isinstance(target_value, (int, float)):
+                # Verifica se os valores estão dentro de limites seguros para comparação
+                if abs(current_value) > 1e15 or abs(target_value) > 1e15:
+                    return False
+
             if scan_type == ScanType.EXACT:
                 return current_value == target_value
 
             elif scan_type == ScanType.INCREASED:
-                return previous_value is not None and current_value > previous_value
+                if previous_value is None:
+                    return False
+                if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
+                    if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
+                        return False
+                return current_value > previous_value
 
             elif scan_type == ScanType.DECREASED:
-                return previous_value is not None and current_value < previous_value
+                if previous_value is None:
+                    return False
+                if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
+                    if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
+                        return False
+                return current_value < previous_value
 
             elif scan_type == ScanType.CHANGED:
                 return previous_value is not None and current_value != previous_value
@@ -144,7 +198,7 @@ class MemoryScanner:
 
             return False
 
-        except:
+        except (OverflowError, ValueError, TypeError):
             return False
 
     def first_scan(self, value: Any, data_type: DataType, 
@@ -239,6 +293,16 @@ class MemoryScanner:
         """Worker thread para realizar o scan"""
         try:
             data_size = self._get_data_size(data_type)
+            
+            # Validação mais rigorosa dos endereços
+            if self.start_address < 0:
+                self.start_address = 0x10000
+            if self.end_address < 0 or self.end_address > 0x7FFFFFFF:
+                self.end_address = 0x7FFFFFFF
+            if self.start_address >= self.end_address:
+                print("Intervalo de scan inválido")
+                return
+                
             current_address = self.start_address
             total_range = self.end_address - self.start_address
             chunk_size = 4096  # 4KB chunks
@@ -292,6 +356,17 @@ class MemoryScanner:
                         current_value = self._read_value_at_address(address, data_type)
 
                         if current_value is not None:
+                            # Validação adicional para valores numéricos
+                            if data_type in [DataType.INT32, DataType.INT64, DataType.FLOAT, DataType.DOUBLE]:
+                                # Verifica se o valor está dentro de limites seguros
+                                if isinstance(current_value, (int, float)):
+                                    if data_type == DataType.INT32 and (current_value < -2147483648 or current_value > 2147483647):
+                                        continue
+                                    elif data_type == DataType.INT64 and (current_value < -9223372036854775808 or current_value > 9223372036854775807):
+                                        continue
+                                    elif data_type in [DataType.FLOAT, DataType.DOUBLE] and abs(current_value) > 1e308:
+                                        continue
+                            
                             if self._compare_values(current_value, value, scan_type):
                                 result = ScanResult(address, current_value, data_type)
                                 self.scan_results.append(result)
@@ -300,8 +375,8 @@ class MemoryScanner:
                                 if len(self.scan_results) >= 10000:
                                     self.is_scanning = False
                                     break
-                    except (OverflowError, ValueError, struct.error):
-                        continue  # Ignora valores que causam overflow
+                    except (OverflowError, ValueError, struct.error, TypeError):
+                        continue  # Ignora valores que causam overflow ou erros
 
                 current_address += chunk_size
 
