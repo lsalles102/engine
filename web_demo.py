@@ -1,0 +1,500 @@
+#!/usr/bin/env python3
+"""
+PyCheatEngine Web Demo
+Web-based demonstration of PyCheatEngine functionality for Replit environment
+"""
+
+import flask
+from flask import Flask, render_template, request, jsonify
+import json
+import os
+import threading
+import time
+from typing import Dict, List, Any
+
+app = Flask(__name__)
+
+# Demo data to simulate memory scanning
+class DemoMemorySpace:
+    def __init__(self):
+        self.memory = {}
+        self.processes = [
+            {"pid": 1234, "name": "demo_game.exe", "status": "Running"},
+            {"pid": 5678, "name": "notepad.exe", "status": "Running"},
+            {"pid": 9012, "name": "calculator.exe", "status": "Running"}
+        ]
+        
+        # Simulate some memory regions with values
+        base_addr = 0x00400000
+        for i in range(100):
+            addr = base_addr + (i * 4)
+            self.memory[addr] = {
+                "value": (i * 10) % 1000,
+                "type": "int32",
+                "writable": i % 3 != 0
+            }
+    
+    def scan_memory(self, value, scan_type="exact"):
+        results = []
+        for addr, data in self.memory.items():
+            if scan_type == "exact" and data["value"] == value:
+                results.append({
+                    "address": hex(addr),
+                    "value": data["value"],
+                    "type": data["type"]
+                })
+            elif scan_type == "greater" and data["value"] > value:
+                results.append({
+                    "address": hex(addr),
+                    "value": data["value"],
+                    "type": data["type"]
+                })
+            elif scan_type == "less" and data["value"] < value:
+                results.append({
+                    "address": hex(addr),
+                    "value": data["value"],
+                    "type": data["type"]
+                })
+        return results
+    
+    def read_memory(self, address):
+        addr_int = int(address, 16) if isinstance(address, str) else address
+        return self.memory.get(addr_int, {"value": 0, "type": "unknown"})
+    
+    def write_memory(self, address, value):
+        addr_int = int(address, 16) if isinstance(address, str) else address
+        if addr_int in self.memory:
+            self.memory[addr_int]["value"] = value
+            return True
+        return False
+
+# Global demo memory space
+demo_memory = DemoMemorySpace()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/processes')
+def get_processes():
+    return jsonify(demo_memory.processes)
+
+@app.route('/api/scan', methods=['POST'])
+def scan_memory():
+    data = request.json
+    value = int(data.get('value', 0))
+    scan_type = data.get('scan_type', 'exact')
+    
+    # Simulate scanning delay
+    time.sleep(0.5)
+    
+    results = demo_memory.scan_memory(value, scan_type)
+    return jsonify({
+        "success": True,
+        "results": results,
+        "count": len(results)
+    })
+
+@app.route('/api/read', methods=['POST'])
+def read_memory():
+    data = request.json
+    address = data.get('address')
+    
+    result = demo_memory.read_memory(address)
+    return jsonify({
+        "success": True,
+        "address": address,
+        "value": result["value"],
+        "type": result["type"]
+    })
+
+@app.route('/api/write', methods=['POST'])
+def write_memory():
+    data = request.json
+    address = data.get('address')
+    value = int(data.get('value', 0))
+    
+    success = demo_memory.write_memory(address, value)
+    return jsonify({
+        "success": success,
+        "message": "Memory written successfully" if success else "Failed to write memory"
+    })
+
+@app.route('/api/aob_scan', methods=['POST'])
+def aob_scan():
+    data = request.json
+    pattern = data.get('pattern', '')
+    
+    # Simulate AOB scanning
+    time.sleep(0.3)
+    
+    # Demo results
+    results = [
+        {"address": "0x004010A0", "pattern": pattern, "matched_bytes": "48 8B 05 ?? ?? ?? ??"},
+        {"address": "0x004012B4", "pattern": pattern, "matched_bytes": "48 8B 05 12 34 56 78"}
+    ]
+    
+    return jsonify({
+        "success": True,
+        "results": results,
+        "count": len(results)
+    })
+
+@app.route('/api/pointer_scan', methods=['POST'])
+def pointer_scan():
+    data = request.json
+    target_address = data.get('target_address')
+    max_offset = int(data.get('max_offset', 1000))
+    
+    # Simulate pointer scanning
+    time.sleep(0.7)
+    
+    # Demo pointer chains
+    results = [
+        {
+            "base_address": "0x00401000",
+            "offsets": [0x10, 0x20, 0x4],
+            "final_address": target_address,
+            "confidence": 95
+        },
+        {
+            "base_address": "0x00402000", 
+            "offsets": [0x8, 0x14],
+            "final_address": target_address,
+            "confidence": 87
+        }
+    ]
+    
+    return jsonify({
+        "success": True,
+        "results": results,
+        "count": len(results)
+    })
+
+if __name__ == '__main__':
+    # Create templates directory and HTML file
+    os.makedirs('templates', exist_ok=True)
+    
+    html_content = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyCheatEngine Web Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .tabs { display: flex; margin-bottom: 20px; }
+        .tab-button { padding: 10px 20px; margin-right: 5px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 5px 5px 0 0; }
+        .tab-button.active { background: #007cba; color: white; }
+        .tab-content { display: none; padding: 20px; border: 1px solid #ddd; border-radius: 0 5px 5px 5px; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: inline-block; width: 120px; }
+        .form-group input, .form-group select { padding: 5px; margin-left: 10px; width: 200px; }
+        .btn { padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background: #005a8b; }
+        .results { margin-top: 20px; }
+        .result-item { padding: 10px; margin: 5px 0; background: #f8f9fa; border-left: 4px solid #007cba; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .status.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .status.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>PyCheatEngine Web Demo</h1>
+            <p>Interactive demonstration of memory manipulation capabilities</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab('scanner')">Memory Scanner</button>
+            <button class="tab-button" onclick="openTab('aob')">AOB Scanner</button>
+            <button class="tab-button" onclick="openTab('pointer')">Pointer Scanner</button>
+            <button class="tab-button" onclick="openTab('memory')">Memory Viewer</button>
+        </div>
+        
+        <!-- Memory Scanner Tab -->
+        <div id="scanner" class="tab-content active">
+            <h3>Memory Scanner</h3>
+            <div class="form-group">
+                <label>Process:</label>
+                <select id="process-select">
+                    <option value="1234">demo_game.exe (PID: 1234)</option>
+                    <option value="5678">notepad.exe (PID: 5678)</option>
+                    <option value="9012">calculator.exe (PID: 9012)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Value:</label>
+                <input type="number" id="scan-value" placeholder="Enter value to scan">
+            </div>
+            <div class="form-group">
+                <label>Scan Type:</label>
+                <select id="scan-type">
+                    <option value="exact">Exact Value</option>
+                    <option value="greater">Greater Than</option>
+                    <option value="less">Less Than</option>
+                </select>
+            </div>
+            <button class="btn" onclick="performScan()">Start Scan</button>
+            
+            <div class="loading" id="scan-loading">Scanning memory...</div>
+            <div class="results" id="scan-results"></div>
+        </div>
+        
+        <!-- AOB Scanner Tab -->
+        <div id="aob" class="tab-content">
+            <h3>Array of Bytes (AOB) Scanner</h3>
+            <div class="form-group">
+                <label>Pattern:</label>
+                <input type="text" id="aob-pattern" placeholder="48 8B 05 ?? ?? ?? ??" style="width: 300px;">
+            </div>
+            <div class="form-group">
+                <label>Description:</label>
+                <input type="text" id="aob-description" placeholder="Pattern description" style="width: 300px;">
+            </div>
+            <button class="btn" onclick="performAOBScan()">Scan Pattern</button>
+            
+            <div class="loading" id="aob-loading">Scanning for pattern...</div>
+            <div class="results" id="aob-results"></div>
+        </div>
+        
+        <!-- Pointer Scanner Tab -->
+        <div id="pointer" class="tab-content">
+            <h3>Pointer Scanner</h3>
+            <div class="form-group">
+                <label>Target Address:</label>
+                <input type="text" id="target-address" placeholder="0x00401000">
+            </div>
+            <div class="form-group">
+                <label>Max Offset:</label>
+                <input type="number" id="max-offset" value="1000">
+            </div>
+            <button class="btn" onclick="performPointerScan()">Find Pointers</button>
+            
+            <div class="loading" id="pointer-loading">Searching for pointer chains...</div>
+            <div class="results" id="pointer-results"></div>
+        </div>
+        
+        <!-- Memory Viewer Tab -->
+        <div id="memory" class="tab-content">
+            <h3>Memory Viewer/Editor</h3>
+            <div class="form-group">
+                <label>Address:</label>
+                <input type="text" id="memory-address" placeholder="0x00400000">
+                <button class="btn" onclick="readMemory()">Read</button>
+            </div>
+            <div class="form-group">
+                <label>New Value:</label>
+                <input type="number" id="memory-value" placeholder="Enter new value">
+                <button class="btn" onclick="writeMemory()">Write</button>
+            </div>
+            
+            <div class="results" id="memory-results"></div>
+        </div>
+    </div>
+    
+    <script>
+        function openTab(tabName) {
+            var tabs = document.getElementsByClassName('tab-content');
+            var buttons = document.getElementsByClassName('tab-button');
+            
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].classList.remove('active');
+            }
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function showLoading(elementId) {
+            document.getElementById(elementId).style.display = 'block';
+        }
+        
+        function hideLoading(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+        
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            document.body.appendChild(statusDiv);
+            setTimeout(() => statusDiv.remove(), 3000);
+        }
+        
+        function performScan() {
+            const value = document.getElementById('scan-value').value;
+            const scanType = document.getElementById('scan-type').value;
+            
+            if (!value) {
+                showStatus('Please enter a value to scan', 'error');
+                return;
+            }
+            
+            showLoading('scan-loading');
+            
+            fetch('/api/scan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({value: parseInt(value), scan_type: scanType})
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading('scan-loading');
+                displayScanResults(data);
+            });
+        }
+        
+        function displayScanResults(data) {
+            const resultsDiv = document.getElementById('scan-results');
+            if (data.success && data.results.length > 0) {
+                let html = `<h4>Found ${data.count} results:</h4>`;
+                data.results.forEach(result => {
+                    html += `<div class="result-item">
+                        Address: ${result.address} | Value: ${result.value} | Type: ${result.type}
+                    </div>`;
+                });
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<p>No results found.</p>';
+            }
+        }
+        
+        function performAOBScan() {
+            const pattern = document.getElementById('aob-pattern').value;
+            
+            if (!pattern) {
+                showStatus('Please enter a byte pattern', 'error');
+                return;
+            }
+            
+            showLoading('aob-loading');
+            
+            fetch('/api/aob_scan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pattern: pattern})
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading('aob-loading');
+                displayAOBResults(data);
+            });
+        }
+        
+        function displayAOBResults(data) {
+            const resultsDiv = document.getElementById('aob-results');
+            if (data.success && data.results.length > 0) {
+                let html = `<h4>Found ${data.count} pattern matches:</h4>`;
+                data.results.forEach(result => {
+                    html += `<div class="result-item">
+                        Address: ${result.address} | Matched: ${result.matched_bytes}
+                    </div>`;
+                });
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<p>No pattern matches found.</p>';
+            }
+        }
+        
+        function performPointerScan() {
+            const targetAddress = document.getElementById('target-address').value;
+            const maxOffset = document.getElementById('max-offset').value;
+            
+            if (!targetAddress) {
+                showStatus('Please enter a target address', 'error');
+                return;
+            }
+            
+            showLoading('pointer-loading');
+            
+            fetch('/api/pointer_scan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({target_address: targetAddress, max_offset: maxOffset})
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading('pointer-loading');
+                displayPointerResults(data);
+            });
+        }
+        
+        function displayPointerResults(data) {
+            const resultsDiv = document.getElementById('pointer-results');
+            if (data.success && data.results.length > 0) {
+                let html = `<h4>Found ${data.count} pointer chains:</h4>`;
+                data.results.forEach(result => {
+                    html += `<div class="result-item">
+                        Base: ${result.base_address} + [${result.offsets.join(', ')}] → ${result.final_address}
+                        <br>Confidence: ${result.confidence}%
+                    </div>`;
+                });
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<p>No pointer chains found.</p>';
+            }
+        }
+        
+        function readMemory() {
+            const address = document.getElementById('memory-address').value;
+            
+            if (!address) {
+                showStatus('Please enter a memory address', 'error');
+                return;
+            }
+            
+            fetch('/api/read', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({address: address})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('memory-results').innerHTML = 
+                        `<div class="result-item">Address ${data.address}: ${data.value} (${data.type})</div>`;
+                }
+            });
+        }
+        
+        function writeMemory() {
+            const address = document.getElementById('memory-address').value;
+            const value = document.getElementById('memory-value').value;
+            
+            if (!address || !value) {
+                showStatus('Please enter both address and value', 'error');
+                return;
+            }
+            
+            fetch('/api/write', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({address: address, value: parseInt(value)})
+            })
+            .then(response => response.json())
+            .then(data => {
+                showStatus(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    readMemory(); // Refresh the display
+                }
+            });
+        }
+    </script>
+</body>
+</html>'''
+    
+    with open('templates/index.html', 'w') as f:
+        f.write(html_content)
+    
+    print("Starting PyCheatEngine Web Demo...")
+    print("Access the demo at: http://localhost:5000")
+    app.run(host='0.0.0.0', port=5000, debug=False)
