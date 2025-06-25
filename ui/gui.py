@@ -2100,7 +2100,7 @@ class CheatEngineGUI:
     def load_session(self):
         """Carrega uma sessão salva"""
         try:
-            filename = filedialog.askopenfilename(```python
+            filename = filedialog.askopenfilename(
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
             )
 
@@ -2207,6 +2207,93 @@ Funcionalidades:
 Desenvolvido com Python, Tkinter e ctypes
         """
         messagebox.showinfo("Sobre PyCheatEngine", about_text)
+
+    def get_timestamp(self):
+        """Retorna timestamp atual formatado"""
+        import datetime
+        return datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+    def show_memory_details(self, address):
+        """Mostra detalhes da memória no endereço"""
+        try:
+            import struct
+            print(f"[GUI] Abrindo detalhes da memória para endereço: 0x{address:X}")
+
+            # Lê dados ao redor do endereço
+            data = self.memory_manager.read_memory(address, 64)
+            if not data:
+                messagebox.showerror("Erro", "❌ Erro ao ler memória: Não foi possível acessar o endereço")
+                return
+
+            # Cria janela de detalhes
+            details_window = tk.Toplevel(self.root)
+            details_window.title(f"Detalhes da Memória - 0x{address:X}")
+            details_window.geometry("600x400")
+            details_window.resizable(True, True)
+
+            # Frame principal com scroll
+            main_frame = ttk.Frame(details_window)
+            main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+
+            # Texto com scroll
+            text_widget = tk.Text(main_frame, wrap='none', font=('Courier', 10))
+            scrollbar_y = ttk.Scrollbar(main_frame, orient='vertical', command=text_widget.yview)
+            scrollbar_x = ttk.Scrollbar(main_frame, orient='horizontal', command=text_widget.xview)
+            text_widget.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+
+            # Layout
+            text_widget.grid(row=0, column=0, sticky='nsew')
+            scrollbar_y.grid(row=0, column=1, sticky='ns')
+            scrollbar_x.grid(row=1, column=0, sticky='ew')
+
+            main_frame.grid_rowconfigure(0, weight=1)
+            main_frame.grid_columnconfigure(0, weight=1)
+
+            # Cabeçalho
+            content = f"Visualização da Memória - Endereço Base: 0x{address:X}\n"
+            content += "=" * 60 + "\n\n"
+
+            # Mostra dados em formato hexadecimal
+            content += "DUMP HEXADECIMAL:\n"
+            content += "-" * 40 + "\n"
+
+            for i in range(0, len(data), 16):
+                addr = address + i
+                hex_data = data[i:i+16]
+
+                # Endereço
+                content += f"0x{addr:08X}: "
+
+                # Bytes em hex
+                for j, byte in enumerate(hex_data):
+                    content += f"{byte:02X} "
+                    if j == 7:  # Separador no meio
+                        content += " "
+
+                # Padding se linha incompleta
+                if len(hex_data) < 16:
+                    content += "   " * (16 - len(hex_data))
+                    if len(hex_data) <= 8:
+                        content += " "
+
+                # ASCII
+                content += " | "
+                for byte in hex_data:
+                    if 32 <= byte <= 126:
+                        content += chr(byte)
+                    else:
+                        content += "."
+
+                content += "\n"
+
+            text_widget.insert(tk.END, content)
+            text_widget.configure(state='disabled')
+
+        except Exception as e:
+            print(f"[GUI] Erro ao mostrar detalhes da memória: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erro", f"❌ Erro ao ler memória: {e}")
 
     def on_enter_key(self, event):
         """Callback para tecla Enter"""
