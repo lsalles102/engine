@@ -71,16 +71,16 @@ class MemoryScanner:
             # Converte para int se necessário e valida
             start_address = int(start_address) if start_address is not None else 0x10000
             end_address = int(end_address) if end_address is not None else 0x7FFFFFFF
-            
+
             # Limites seguros
             min_address = 0x10000
             max_address = 0x7FFFFFFF
-            
+
             if start_address < min_address:
                 start_address = min_address
             if start_address > max_address:
                 start_address = min_address
-                
+
             if end_address < min_address or end_address > max_address:
                 end_address = max_address
             if end_address <= start_address:
@@ -90,7 +90,7 @@ class MemoryScanner:
 
             self.start_address = start_address
             self.end_address = end_address
-            
+
         except (ValueError, TypeError, OverflowError):
             # Define valores padrão seguros em caso de erro
             self.start_address = 0x10000
@@ -114,7 +114,7 @@ class MemoryScanner:
             # Validação do endereço
             if address < 0 or address > 0x7FFFFFFFFFFFFFFF:
                 return None
-                
+
             if data_type == DataType.INT32:
                 value = self.memory_manager.read_int32(address)
                 # Validação do valor INT32
@@ -237,248 +237,100 @@ class MemoryScanner:
         finally:
             self.is_scanning = False
 
-    def next_scan(self, value: Any, scan_type: ScanType) -> List[ScanResult]:
+    def next_scan(self, value, scan_type: ScanType) -> List[ScanResult]:
         """
-        Realiza scan subsequente baseado nos resultados anteriores
-        Funciona como o Cheat Engine tradicional - compara valor atual com o valor fornecido
+        Realiza próximo scan com base nos resultados anteriores
 
         Args:
-            value: Valor a procurar (pode ser None para alguns tipos de scan)
-            scan_type: Tipo de comparação
+            value: Valor a ser usado na comparação (pode ser None para alguns tipos)
+            scan_type: Tipo de scan a ser realizado
 
         Returns:
-            List[ScanResult]: Lista de resultados filtrados
+            Lista de resultados que correspondem aos critérios
         """
-        print(f"[NEXT_SCAN] Iniciando - Tipo: {scan_type.value}, Valor: {value}")
-        print(f"[NEXT_SCAN] Resultados anteriores: {len(self.scan_results)}")
-        
-        # Validação básica
         if not self.scan_results:
-            error_msg = "Nenhum scan anterior encontrado. Execute first_scan primeiro."
-            print(f"[NEXT_SCAN ERROR] {error_msg}")
-            raise RuntimeError(error_msg)
+            raise ValueError("Nenhum resultado de scan anterior. Execute first_scan primeiro.")
 
         if not self.memory_manager.is_attached():
-            error_msg = "Não está anexado a nenhum processo"
-            print(f"[NEXT_SCAN ERROR] {error_msg}")
-            raise RuntimeError(error_msg)
-
-        # Validação específica por tipo de scan
-        needs_value = scan_type in [ScanType.EXACT, ScanType.GREATER_THAN, ScanType.LESS_THAN, ScanType.BETWEEN]
-        if needs_value and value is None:
-            error_msg = f"Tipo de scan '{scan_type.value}' requer um valor"
-            print(f"[NEXT_SCAN ERROR] {error_msg}")
-            raise ValueError(error_msg)
+            raise ValueError("Processo não anexado")
 
         self.is_scanning = True
-        self.scan_progress = 0
-        processed_count = 0
-        matched_count = 0
-        unchanged_count = 0
+        filtered_results = []
 
         try:
-            # PRIMEIRO: Faz múltiplas leituras para detectar valores instáveis
-            print(f"[NEXT_SCAN] Passo 1: Verificando estabilidade dos valores...")
-            total_results = len(self.scan_results)
-            
-            # Lista para armazenar múltiplas leituras
-            stable_results = []
-            
+            print(f"[NEXT_SCAN] Iniciando - Tipo: {scan_type.value}, Valor: {value}")
+            print(f"[NEXT_SCAN] Resultados anteriores: {len(self.scan_results)}")
+
+            # PASSO 1: Atualiza TODOS os valores da memória primeiro
+            print(f"[NEXT_SCAN] Passo 1: Atualizando valores da memória...")
             for i, result in enumerate(self.scan_results):
                 if not self.is_scanning:
                     break
-                    
-                # Atualiza progresso da leitura (0-40%)
-                progress = int((i / total_results) * 40) if total_results > 0 else 0
-                if progress != self.scan_progress:
-                    self.scan_progress = progress
-                    if self.progress_callback:
-                        try:
-                            self.progress_callback(progress)
-                        except Exception as e:
-                            print(f"[NEXT_SCAN WARNING] Erro no callback de progresso: {e}")
-                
-                # Faz múltiplas leituras para verificar estabilidade
-                try:
-                    readings = []
-                    for read_attempt in range(3):  # 3 leituras
-                        current_value = self._read_value_at_address(result.address, result.data_type)
-                        if current_value is not None:
-                            readings.append(current_value)
-                        
-                        # Pequena pausa entre leituras
-                        import time
-                        time.sleep(0.001)  # 1ms
-                    
-                    if readings:
-                        # Usa a leitura mais comum (ou a primeira se todas forem diferentes)
-                        if len(set(readings)) == 1:
-                            # Todas as leituras são iguais - valor estável
-                            final_value = readings[0]
-                            is_stable = True
-                        else:
-                            # Valores inconsistentes - usa a primeira leitura
-                            final_value = readings[0]
-                            is_stable = False
-                            print(f"[NEXT_SCAN] Valor instável no endereço 0x{result.address:X}: {readings}")
-                        
-                        # Salva o valor anterior antes de atualizar
-                        result.previous_value = result.value
-                        result.value = final_value
-                        stable_results.append((result, is_stable))
-                        
-                        if i < 3:  # Log apenas dos primeiros 3
-                            print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={result.previous_value}, atual={final_value}, estável={is_stable}")
-                            
-                        # Conta valores que não mudaram
-                        if result.previous_value == final_value:
-                            unchanged_count += 1
-                    else:
-                        # Não conseguiu ler - marca como inválido
-                        result.value = None
-                        
-                except Exception as e:
-                    if i < 5:  # Log apenas para os primeiros erros
-                        print(f"[NEXT_SCAN WARNING] Erro ao ler endereço 0x{result.address:X}: {e}")
-                    result.value = None
 
-            # Análise dos resultados da primeira fase
-            valid_results = [r for r, stable in stable_results if r.value is not None]
-            print(f"[NEXT_SCAN] Análise inicial:")
-            print(f"  - Resultados válidos: {len(valid_results)}")
-            print(f"  - Valores não alterados: {unchanged_count}")
-            print(f"  - Valores potencialmente alterados: {len(valid_results) - unchanged_count}")
+                # Atualiza progresso
+                if i % 50 == 0 and self.progress_callback:
+                    progress = (i / len(self.scan_results)) * 50  # Primeira metade do progresso
+                    self.progress_callback(progress)
 
-            # SEGUNDO: Aplica filtros baseados no tipo de scan
-            print(f"[NEXT_SCAN] Passo 2: Aplicando filtros...")
-            new_results = []
+                # Lê valor atual da memória
+                current_value = self._read_value_at_address(result.address, result.data_type)
 
-            for i, (result, is_stable) in enumerate(stable_results):
+                if current_value is not None:
+                    print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={result.value}, atual={current_value}")
+                    # Atualiza o valor no resultado
+                    result.previous_value = result.value  # Salva valor anterior
+                    result.value = current_value  # Atualiza com valor atual
+
+            # PASSO 2: Agora filtra com base nos valores atualizados
+            print(f"[NEXT_SCAN] Passo 2: Filtrando resultados...")
+            for i, result in enumerate(self.scan_results):
                 if not self.is_scanning:
-                    print("[NEXT_SCAN] Scan cancelado pelo usuário")
                     break
 
-                processed_count += 1
+                # Atualiza progresso (segunda metade)
+                if i % 50 == 0 and self.progress_callback:
+                    progress = 50 + (i / len(self.scan_results)) * 50
+                    self.progress_callback(progress)
 
-                # Atualiza progresso da filtragem (40-100%)
-                progress = 40 + int((i / len(stable_results)) * 60) if stable_results else 100
-                if progress != self.scan_progress:
-                    self.scan_progress = progress
-                    if self.progress_callback:
-                        try:
-                            self.progress_callback(progress)
-                        except Exception as e:
-                            print(f"[NEXT_SCAN WARNING] Erro no callback de progresso: {e}")
+                # Verifica se tem valor anterior salvo
+                previous_val = result.previous_value if hasattr(result, 'previous_value') and result.previous_value is not None else result.value
+                current_val = result.value
 
-                # Pula se não conseguiu ler o valor
-                if result.value is None:
-                    continue
+                print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={previous_val}, atual={current_val}, procurado={value}, match={self._compare_values(previous_val, current_val, value, scan_type)}")
 
-                # Aplica lógica de comparação baseada no tipo de scan
-                try:
-                    match = False
-                    current_value = result.value
-                    previous_value = result.previous_value
-                    
-                    if scan_type == ScanType.EXACT:
-                        # Para scan exact, verifica se o valor atual é igual ao procurado
-                        match = (current_value == value)
-                        
-                    elif scan_type == ScanType.INCREASED:
-                        # Verifica se valor atual é maior que o anterior
-                        if previous_value is not None:
-                            match = (current_value > previous_value)
-                        
-                    elif scan_type == ScanType.DECREASED:
-                        # Verifica se valor atual é menor que o anterior
-                        if previous_value is not None:
-                            match = (current_value < previous_value)
-                        
-                    elif scan_type == ScanType.CHANGED:
-                        # Verifica se valor mudou (diferente do anterior)
-                        if previous_value is not None:
-                            match = (current_value != previous_value)
-                        
-                    elif scan_type == ScanType.UNCHANGED:
-                        # Verifica se valor não mudou (igual ao anterior)
-                        if previous_value is not None:
-                            match = (current_value == previous_value)
-                        
-                    elif scan_type == ScanType.GREATER_THAN:
-                        # Compara valor atual com valor fornecido
-                        match = (current_value > value)
-                        
-                    elif scan_type == ScanType.LESS_THAN:
-                        # Compara valor atual com valor fornecido
-                        match = (current_value < value)
-                        
-                    elif scan_type == ScanType.BETWEEN:
-                        # Verifica se valor está no intervalo fornecido
-                        if isinstance(value, (list, tuple)) and len(value) == 2:
-                            match = (value[0] <= current_value <= value[1])
-                    
-                    # Log detalhado para os primeiros resultados
-                    if i < 5 and (match or scan_type == ScanType.EXACT):
-                        comparison_info = f"anterior={previous_value}, atual={current_value}"
-                        if scan_type == ScanType.EXACT:
-                            comparison_info += f", procurado={value}"
-                        print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: {comparison_info}, match={match}, estável={is_stable}")
-                    
-                    if match:
-                        new_results.append(result)
-                        matched_count += 1
-                        
-                except Exception as comp_error:
-                    print(f"[NEXT_SCAN ERROR] Erro na comparação para endereço 0x{result.address:X}: {comp_error}")
-                    continue
+                # Aplica filtro baseado no tipo de scan
+                match = self._compare_values(previous_val, current_val, value, scan_type)
 
-            # Atualiza resultados
-            self.scan_results = new_results
-            self.scan_progress = 100
-            
-            # Relatório final detalhado
-            print(f"[NEXT_SCAN] Relatório Final:")
-            print(f"  - Processados: {processed_count}/{total_results}")
-            print(f"  - Correspondências encontradas: {matched_count}")
-            print(f"  - Resultados restantes: {len(new_results)}")
-            print(f"  - Valores que não mudaram: {unchanged_count}")
-            
-            # Sugestões baseadas nos resultados
-            if matched_count == 0 and scan_type == ScanType.EXACT:
-                if unchanged_count > 0:
-                    print(f"[NEXT_SCAN] DICA: {unchanged_count} valores não mudaram. Tente:")
-                    print(f"  1. Alterar o valor no jogo novamente")
-                    print(f"  2. Usar scan tipo 'changed' para detectar alterações")
-                    print(f"  3. Verificar se está alterando o valor correto no jogo")
-                else:
-                    print(f"[NEXT_SCAN] DICA: Nenhum valor correspondente. Possíveis causas:")
-                    print(f"  1. O valor não mudou para {value}")
-                    print(f"  2. O endereço de memória mudou")
-                    print(f"  3. O valor está protegido ou é calculado dinamicamente")
-            
-            # Callback final
-            if self.progress_callback:
-                try:
-                    self.progress_callback(100)
-                except Exception as e:
-                    print(f"[NEXT_SCAN WARNING] Erro no callback final: {e}")
+                if match:
+                    filtered_results.append(result)
 
-            return self.scan_results.copy()
+            # Atualiza lista de resultados
+            self.scan_results = filtered_results
+
+            print(f"[NEXT_SCAN] Completado:")
+            print(f"  - Processados: {len(self.scan_results)}/{len(self.scan_results)}")
+            print(f"  - Correspondências: {len(filtered_results)}")
+            print(f"  - Resultados restantes: {len(self.scan_results)}")
 
         except Exception as e:
-            print(f"[NEXT_SCAN ERROR] Erro crítico durante scan: {e}")
+            print(f"[NEXT_SCAN] Erro: {e}")
             import traceback
             traceback.print_exc()
-            return []
+            raise
         finally:
             self.is_scanning = False
             print(f"[NEXT_SCAN] Finalizado - is_scanning = {self.is_scanning}")
+
+            if self.progress_callback:
+                self.progress_callback(100)
+
+        return self.scan_results
 
     def _scan_worker(self, value: Any, data_type: DataType, scan_type: ScanType, previous_results: Optional[List[ScanResult]]):
         """Worker thread para realizar o scan"""
         try:
             data_size = self._get_data_size(data_type)
-            
+
             # Validação mais rigorosa dos endereços
             if self.start_address < 0:
                 self.start_address = 0x10000
@@ -487,7 +339,7 @@ class MemoryScanner:
             if self.start_address >= self.end_address:
                 print("Intervalo de scan inválido")
                 return
-                
+
             current_address = self.start_address
             total_range = self.end_address - self.start_address
             chunk_size = 4096  # 4KB chunks
@@ -501,7 +353,7 @@ class MemoryScanner:
                 # Verifica se endereço está dentro dos limites
                 if current_address < 0 or current_address > 0x7FFFFFFF:
                     break  # Para o loop em vez de continuar infinitamente
-                
+
                 # Proteção adicional contra overflow
                 if current_address + chunk_size < current_address:
                     break
@@ -554,7 +406,7 @@ class MemoryScanner:
                                         continue
                                     elif data_type in [DataType.FLOAT, DataType.DOUBLE] and abs(current_value) > 1e308:
                                         continue
-                            
+
                             if self._compare_values(current_value, value, scan_type):
                                 result = ScanResult(address, current_value, data_type)
                                 self.scan_results.append(result)
@@ -584,26 +436,37 @@ class MemoryScanner:
         """Cancela o scan atual"""
         self.is_scanning = False
 
-    def update_results(self) -> int:
-        """
-        Atualiza os valores de todos os resultados
-
-        Returns:
-            int: Número de resultados ainda válidos
-        """
-        if not self.scan_results:
-            return 0
-
-        valid_results = []
+    def update_results(self):
+        """Atualiza os valores dos resultados lendo da memória"""
+        if not self.memory_manager.is_attached():
+            return
 
         for result in self.scan_results:
             current_value = self._read_value_at_address(result.address, result.data_type)
             if current_value is not None:
                 result.update_value(current_value)
-                valid_results.append(result)
 
-        self.scan_results = valid_results
-        return len(self.scan_results)
+    def refresh_all_values(self):
+        """
+        Força atualização de todos os valores da memória
+        Útil antes de fazer next_scan para garantir valores atuais
+        """
+        if not self.memory_manager.is_attached() or not self.scan_results:
+            return
+
+        print(f"[REFRESH] Atualizando {len(self.scan_results)} valores...")
+        updated_count = 0
+
+        for result in self.scan_results:
+            current_value = self._read_value_at_address(result.address, result.data_type)
+            if current_value is not None and current_value != result.value:
+                print(f"[REFRESH] 0x{result.address:X}: {result.value} -> {current_value}")
+                result.previous_value = result.value
+                result.value = current_value
+                updated_count += 1
+
+        print(f"[REFRESH] {updated_count} valores foram atualizados")
+        return updated_count
 
     def get_scan_summary(self) -> Dict[str, Any]:
         """Retorna resumo do scan atual"""
@@ -716,12 +579,12 @@ class MemoryScanner:
     def write_value_to_address(self, address: int, value: Any, data_type: DataType) -> bool:
         """
         Escreve um valor no endereço especificado
-        
+
         Args:
             address: Endereço de memória
             value: Valor a ser escrito
             data_type: Tipo do dado
-            
+
         Returns:
             bool: True se escreveu com sucesso
         """
@@ -740,7 +603,7 @@ class MemoryScanner:
                 if isinstance(value, str):
                     value = bytes.fromhex(value.replace(' ', ''))
                 return self.memory_manager.write_memory(address, value)
-            
+
             return False
         except Exception as e:
             print(f"Erro ao escrever valor: {e}")
@@ -750,7 +613,7 @@ class MemoryScanner:
         """Retorna informações do processo anexado"""
         if not self.memory_manager.is_attached():
             return {}
-        
+
         return {
             'process_id': self.memory_manager.process_id,
             'attached': True

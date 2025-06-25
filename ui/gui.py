@@ -133,17 +133,21 @@ class CheatEngineGUI:
         # Frame de dicas
         tips_frame = ttk.Frame(scan_group)
         tips_frame.pack(fill=tk.X, pady=2)
-        tips_label1 = ttk.Label(tips_frame, text="💡 DICA: Para próximo scan, altere o valor no jogo primeiro!", 
+        tips_label1 = ttk.Label(tips_frame, text="💡 DICA: Para próximo scan, altere o valor no jogo PRIMEIRO!", 
                               font=('TkDefaultFont', 8), foreground='blue')
         tips_label1.pack(anchor=tk.W)
         
-        tips_label2 = ttk.Label(tips_frame, text="🎯 MUNIÇÕES/HP: Use 'decreased' em vez de 'exact' após atirar/perder vida", 
+        tips_label2 = ttk.Label(tips_frame, text="🎯 MUNIÇÕES: Atire algumas vezes, depois use 'decreased' (não 'exact')", 
                               font=('TkDefaultFont', 8), foreground='green')
         tips_label2.pack(anchor=tk.W)
         
-        tips_label3 = ttk.Label(tips_frame, text="⌨️ ATALHOS: Ctrl+C=Copiar endereço | Clique direito=Menu | Enter=Editar", 
-                              font=('TkDefaultFont', 8), foreground='purple')
+        tips_label3 = ttk.Label(tips_frame, text="⚡ VIDA/HP: Perca vida no jogo, depois use 'decreased' para filtrar", 
+                              font=('TkDefaultFont', 8), foreground='orange')
         tips_label3.pack(anchor=tk.W)
+        
+        tips_label4 = ttk.Label(tips_frame, text="⌨️ ATALHOS: Ctrl+C=Copiar | Clique direito=Menu | Enter=Editar", 
+                              font=('TkDefaultFont', 8), foreground='purple')
+        tips_label4.pack(anchor=tk.W)
         
         ttk.Label(scan_group, text="Tipo de Dado:").pack(anchor=tk.W)
         self.data_type_var = tk.StringVar(value="int32")
@@ -613,13 +617,26 @@ class CheatEngineGUI:
                 
             print(f"[GUI] Scanner válido, {len(self.scanner.scan_results)} resultados anteriores")
             
+            # FORÇA ATUALIZAÇÃO DE TODOS OS VALORES ANTES DO SCAN
+            print(f"[GUI] Forçando atualização de valores da memória...")
+            try:
+                updated_count = self.scanner.refresh_all_values()
+                print(f"[GUI] {updated_count} valores foram atualizados da memória")
+                
+                # Aguarda um pouco para que os valores se estabilizem
+                import time
+                time.sleep(0.1)
+                
+            except Exception as refresh_error:
+                print(f"[GUI] Erro ao atualizar valores: {refresh_error}")
+            
             # Para scans exact, faz uma pré-verificação para detectar valores instáveis
             if scan_type.value == "exact" and value is not None:
                 print(f"[GUI] Fazendo pré-verificação para valor exact: {value}")
                 stable_results = []
                 unstable_count = 0
                 
-                # Verifica se os valores estão estáveis
+                # Verifica se os valores estão estáveis (após atualização)
                 for i, result in enumerate(self.scanner.scan_results[:10]):  # Testa apenas os primeiros 10
                     current_value = self.scanner._read_value_at_address(result.address, result.data_type)
                     if current_value is not None:
@@ -630,11 +647,12 @@ class CheatEngineGUI:
                             print(f"[GUI] Valor instável detectado no endereço 0x{result.address:X}: {result.value} -> {current_value}")
                 
                 if len(stable_results) == 0 and unstable_count > 0:
-                    suggestion = f"DICA: Os valores parecem estar mudando. Tente usar 'changed' ou 'decreased' em vez de 'exact'"
+                    suggestion = f"DICA: Os valores estão mudando constantemente. Use 'changed', 'increased' ou 'decreased'"
                     print(f"[GUI] {suggestion}")
                     if hasattr(self, 'root') and self.root:
                         self.root.after(0, self.update_status, suggestion)
             
+            # Executa o next scan
             results = self.scanner.next_scan(value, scan_type)
             
             print(f"[GUI] Next scan retornou {len(results)} resultados")
