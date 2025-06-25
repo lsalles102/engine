@@ -5,7 +5,7 @@ Implementa funcionalidades para busca de padrões de bytes na memória com supor
 
 import re
 from typing import List, Optional, Dict, Any, Callable
-from .memory import MemoryManager
+from memory import MemoryManager
 
 class AOBPattern:
     """Representa um padrão de bytes para busca"""

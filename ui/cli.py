@@ -7,10 +7,14 @@ import sys
 import json
 from typing import List, Optional
 
-from ..memory import MemoryManager
-from ..scanner import MemoryScanner, ScanType, DataType
-from ..pointer import PointerResolver
-from ..aob_scan import AOBScanner
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from memory import MemoryManager
+from scanner import MemoryScanner, ScanType, DataType
+from pointer import PointerResolver
+from aob_scan import AOBScanner
 
 class CheatEngineCLI:
     """Interface de linha de comando para PyCheatEngine"""

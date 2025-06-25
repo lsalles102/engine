@@ -21,4 +21,4 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python -m pip install psutil && python main.py --gui --no-admin-check"
+args = "python demo_app.py"

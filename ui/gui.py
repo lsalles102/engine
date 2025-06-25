@@ -10,10 +10,14 @@ import json
 import os
 from typing import List, Dict, Any, Optional
 
-from ..memory import MemoryManager
-from ..scanner import MemoryScanner, ScanType, DataType, ScanResult
-from ..pointer import PointerResolver, PointerChain
-from ..aob_scan import AOBScanner, AOBResult
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from memory import MemoryManager
+from scanner import MemoryScanner, ScanType, DataType, ScanResult
+from pointer import PointerResolver, PointerChain
+from aob_scan import AOBScanner, AOBResult
 
 class CheatEngineGUI:
     """Interface gráfica principal do PyCheatEngine"""

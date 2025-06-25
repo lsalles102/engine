@@ -3,22 +3,30 @@ Módulo de Leitura e Escrita de Memória
 Fornece funcionalidades para ler e escrever diferentes tipos de dados na memória de processos
 """
 
-import ctypes
-import ctypes.wintypes
 import struct
 import psutil
+import platform
+import os
 from typing import Optional, Union, List
 
-# Constantes do Windows
-PROCESS_ALL_ACCESS = 0x1F0FFF
-PROCESS_VM_READ = 0x0010
-PROCESS_VM_WRITE = 0x0020
-PROCESS_VM_OPERATION = 0x0008
-PROCESS_QUERY_INFORMATION = 0x0400
+# Detecta plataforma
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
 
-# Bibliotecas do Windows
-kernel32 = ctypes.windll.kernel32
-psapi = ctypes.windll.psapi
+if IS_WINDOWS:
+    import ctypes
+    import ctypes.wintypes
+    
+    # Constantes do Windows
+    PROCESS_ALL_ACCESS = 0x1F0FFF
+    PROCESS_VM_READ = 0x0010
+    PROCESS_VM_WRITE = 0x0020
+    PROCESS_VM_OPERATION = 0x0008
+    PROCESS_QUERY_INFORMATION = 0x0400
+    
+    # Bibliotecas do Windows
+    kernel32 = ctypes.windll.kernel32
+    psapi = ctypes.windll.psapi
 
 class MemoryManager:
     """Gerenciador de memória para leitura e escrita em processos"""
@@ -27,6 +35,7 @@ class MemoryManager:
         self.process_handle = None
         self.process_id = None
         self.process_name = None
+        self.mem_file = None  # Para Linux
     
     def attach_to_process(self, process_id: int) -> bool:
         """
@@ -39,31 +48,51 @@ class MemoryManager:
             bool: True se anexou com sucesso, False caso contrário
         """
         try:
-            # Tenta abrir o processo com privilégios necessários
-            self.process_handle = kernel32.OpenProcess(
-                PROCESS_ALL_ACCESS,
-                False,
-                process_id
-            )
-            
-            if not self.process_handle:
-                # Tenta com menos privilégios
+            if IS_WINDOWS:
+                # Windows: usa APIs nativas
                 self.process_handle = kernel32.OpenProcess(
-                    PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
+                    PROCESS_ALL_ACCESS,
                     False,
                     process_id
                 )
+                
+                if not self.process_handle:
+                    self.process_handle = kernel32.OpenProcess(
+                        PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
+                        False,
+                        process_id
+                    )
+                
+                if self.process_handle:
+                    self.process_id = process_id
+                    try:
+                        process = psutil.Process(process_id)
+                        self.process_name = process.name()
+                    except:
+                        self.process_name = f"PID_{process_id}"
+                    return True
+                
+                return False
             
-            if self.process_handle:
-                self.process_id = process_id
+            elif IS_LINUX:
+                # Linux: usa /proc/PID/mem
                 try:
-                    process = psutil.Process(process_id)
-                    self.process_name = process.name()
-                except:
-                    self.process_name = f"PID_{process_id}"
-                return True
+                    self.mem_file = open(f"/proc/{process_id}/mem", "rb+")
+                    self.process_id = process_id
+                    try:
+                        process = psutil.Process(process_id)
+                        self.process_name = process.name()
+                    except:
+                        self.process_name = f"PID_{process_id}"
+                    return True
+                except (OSError, PermissionError):
+                    print(f"Erro: Sem permissão para acessar processo {process_id}")
+                    print("Execute com sudo ou verifique se o processo existe")
+                    return False
             
-            return False
+            else:
+                print(f"Plataforma {platform.system()} não suportada")
+                return False
             
         except Exception as e:
             print(f"Erro ao anexar ao processo {process_id}: {e}")

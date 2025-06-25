@@ -4,7 +4,7 @@ Implementa funcionalidades para resolver cadeias de ponteiros (pointer chains)
 """
 
 from typing import List, Optional, Dict, Any
-from .memory import MemoryManager
+from memory import MemoryManager
 
 class PointerChain:
     """Representa uma cadeia de ponteiros"""

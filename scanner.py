@@ -9,7 +9,7 @@ import threading
 from typing import List, Dict, Any, Optional, Callable
 from enum import Enum
 
-from .memory import MemoryManager
+from memory import MemoryManager
 
 class ScanType(Enum):
     """Tipos de scan disponíveis"""

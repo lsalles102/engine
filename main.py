@@ -213,7 +213,12 @@ def run_gui():
         print("\nInicializando interface gráfica...")
         print("Aguarde enquanto a janela é carregada...")
         
-        from ui.gui import CheatEngineGUI
+        # Adiciona o diretório atual ao path para resolver imports
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        
+        import ui.gui
+        CheatEngineGUI = ui.gui.CheatEngineGUI
         
         # Cria e executa a GUI
         gui = CheatEngineGUI()
@@ -234,7 +239,12 @@ def run_cli():
     try:
         print("\nInicializando interface de linha de comando...")
         
-        from ui.cli import CheatEngineCLI
+        # Adiciona o diretório atual ao path para resolver imports
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        
+        import ui.cli
+        CheatEngineCLI = ui.cli.CheatEngineCLI
         
         # Cria e executa a CLI
         cli = CheatEngineCLI()
