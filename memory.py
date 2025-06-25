@@ -124,16 +124,29 @@ class MemoryManager:
         if not self.is_attached():
             raise RuntimeError("Não está anexado a nenhum processo")
         
+        # Validação de parâmetros para evitar overflow
+        if address < 0 or address > 0x7FFFFFFFFFFFFFFF:
+            print(f"Endereço inválido: 0x{address:X}")
+            return None
+            
+        if size <= 0 or size > 0x10000:  # Limita a 64KB por leitura
+            print(f"Tamanho inválido: {size}")
+            return None
+        
         try:
             if IS_WINDOWS:
+                # Usa ctypes com validação de overflow
                 buffer = ctypes.create_string_buffer(size)
                 bytes_read = ctypes.c_size_t()
                 
+                # Converte endereço para ctypes de forma segura
+                addr_ptr = ctypes.c_void_p(address & 0xFFFFFFFFFFFFFFFF)
+                
                 success = kernel32.ReadProcessMemory(
                     self.process_handle,
-                    ctypes.c_void_p(address),
+                    addr_ptr,
                     buffer,
-                    size,
+                    ctypes.c_size_t(size),
                     ctypes.byref(bytes_read)
                 )
                 
@@ -149,6 +162,9 @@ class MemoryManager:
             
             return None
             
+        except (OverflowError, OSError) as e:
+            print(f"Erro de overflow/OS no endereço 0x{address:X}: {e}")
+            return None
         except Exception as e:
             print(f"Erro ao ler memória no endereço 0x{address:X}: {e}")
             return None
@@ -167,15 +183,27 @@ class MemoryManager:
         if not self.is_attached():
             raise RuntimeError("Não está anexado a nenhum processo")
         
+        # Validação de parâmetros para evitar overflow
+        if address < 0 or address > 0x7FFFFFFFFFFFFFFF:
+            print(f"Endereço inválido para escrita: 0x{address:X}")
+            return False
+            
+        if len(data) <= 0 or len(data) > 0x10000:  # Limita a 64KB por escrita
+            print(f"Tamanho de dados inválido: {len(data)}")
+            return False
+        
         try:
             if IS_WINDOWS:
                 bytes_written = ctypes.c_size_t()
                 
+                # Converte endereço de forma segura
+                addr_ptr = ctypes.c_void_p(address & 0xFFFFFFFFFFFFFFFF)
+                
                 success = kernel32.WriteProcessMemory(
                     self.process_handle,
-                    ctypes.c_void_p(address),
+                    addr_ptr,
                     data,
-                    len(data),
+                    ctypes.c_size_t(len(data)),
                     ctypes.byref(bytes_written)
                 )
                 
@@ -190,6 +218,9 @@ class MemoryManager:
             
             return False
             
+        except (OverflowError, OSError) as e:
+            print(f"Erro de overflow/OS ao escrever no endereço 0x{address:X}: {e}")
+            return False
         except Exception as e:
             print(f"Erro ao escrever memória no endereço 0x{address:X}: {e}")
             return False

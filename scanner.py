@@ -66,6 +66,15 @@ class MemoryScanner:
     
     def set_scan_range(self, start_address: int, end_address: int):
         """Define o intervalo de endereços para scan"""
+        # Validação para evitar overflow
+        if start_address < 0:
+            start_address = 0x10000
+        if end_address < 0 or end_address > 0x7FFFFFFF:
+            end_address = 0x7FFFFFFF
+        if start_address >= end_address:
+            start_address = 0x10000
+            end_address = 0x7FFFFFFF
+            
         self.start_address = start_address
         self.end_address = end_address
     
@@ -234,43 +243,74 @@ class MemoryScanner:
             total_range = self.end_address - self.start_address
             chunk_size = 4096  # 4KB chunks
             
+            # Validação adicional para evitar overflow
+            if total_range <= 0 or total_range > 0x7FFFFFFF:
+                print("Intervalo de scan inválido")
+                return
+            
             while current_address < self.end_address and self.is_scanning:
-                # Atualiza progresso
-                progress = int(((current_address - self.start_address) / total_range) * 100)
-                if progress != self.scan_progress:
-                    self.scan_progress = progress
-                    if self.progress_callback:
-                        self.progress_callback(progress)
+                # Verifica se endereço está dentro dos limites
+                if current_address < 0 or current_address > 0x7FFFFFFF:
+                    current_address += chunk_size
+                    continue
                 
-                # Lê chunk de memória
-                chunk_data = self.memory_manager.read_memory(current_address, chunk_size)
-                if not chunk_data:
+                # Atualiza progresso com proteção contra divisão por zero
+                if total_range > 0:
+                    progress = int(((current_address - self.start_address) / total_range) * 100)
+                    progress = max(0, min(100, progress))  # Garante que está entre 0-100
+                    if progress != self.scan_progress:
+                        self.scan_progress = progress
+                        if self.progress_callback:
+                            try:
+                                self.progress_callback(progress)
+                            except:
+                                pass  # Ignora erros no callback
+                
+                # Lê chunk de memória com tratamento de erro
+                try:
+                    chunk_data = self.memory_manager.read_memory(current_address, chunk_size)
+                    if not chunk_data:
+                        current_address += chunk_size
+                        continue
+                except (OverflowError, OSError):
                     current_address += chunk_size
                     continue
                 
                 # Processa cada posição possível no chunk
-                for offset in range(0, len(chunk_data) - data_size + 1, self.alignment):
+                max_offset = max(0, len(chunk_data) - data_size + 1)
+                for offset in range(0, max_offset, self.alignment):
                     if not self.is_scanning:
                         break
                     
                     address = current_address + offset
-                    current_value = self._read_value_at_address(address, data_type)
                     
-                    if current_value is not None:
-                        if self._compare_values(current_value, value, scan_type):
-                            result = ScanResult(address, current_value, data_type)
-                            self.scan_results.append(result)
-                            
-                            # Limita resultados para evitar sobrecarga
-                            if len(self.scan_results) >= 10000:
-                                self.is_scanning = False
-                                break
+                    # Validação do endereço final
+                    if address < 0 or address > 0x7FFFFFFF:
+                        continue
+                    
+                    try:
+                        current_value = self._read_value_at_address(address, data_type)
+                        
+                        if current_value is not None:
+                            if self._compare_values(current_value, value, scan_type):
+                                result = ScanResult(address, current_value, data_type)
+                                self.scan_results.append(result)
+                                
+                                # Limita resultados para evitar sobrecarga
+                                if len(self.scan_results) >= 10000:
+                                    self.is_scanning = False
+                                    break
+                    except (OverflowError, ValueError, struct.error):
+                        continue  # Ignora valores que causam overflow
                 
                 current_address += chunk_size
             
             self.scan_progress = 100
             if self.progress_callback:
-                self.progress_callback(100)
+                try:
+                    self.progress_callback(100)
+                except:
+                    pass
                 
         except Exception as e:
             print(f"Erro durante scan: {e}")
