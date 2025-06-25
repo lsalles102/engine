@@ -1,0 +1,178 @@
+Eu preciso criar um Cheat Engine em Python chamado PyCheatEngine, que seja modular e eficiente, permitindo a leitura e escrita de memória de um processo, escaneamento de valores e manipulação de ponteiros (pointer chains). Além disso, quero uma interface gráfica para facilitar o uso.
+
+✅ Requisitos Principais do Projeto:
+Leitura e Escrita de Memória:
+
+O programa deve ser capaz de ler e escrever diferentes tipos de dados na memória de um processo em execução:
+
+Inteiros (int)
+
+Ponto flutuante (float, double)
+
+Strings com terminador null
+
+Bytes diretamente
+
+As funções de leitura e escrita devem ser flexíveis para funcionar com qualquer tipo de dado na memória do processo.
+
+Scanner de Memória:
+
+O programa deve ser capaz de realizar:
+
+First Scan: Procurar um valor específico na memória do processo.
+
+Next Scan: Realizar um novo scan com base nos resultados anteriores, permitindo comparar os valores encontrados usando critérios como:
+
+increased: Se o valor aumentou
+
+decreased: Se o valor diminuiu
+
+changed: Se o valor mudou
+
+unchanged: Se o valor não mudou
+
+exact: Se o valor corresponde exatamente ao valor informado
+
+O programa deve permitir que o usuário realize buscas em tempo real e compare os resultados.
+
+Resolução de Ponteiros (Pointer Chains):
+
+O programa deve ser capaz de resolver cadeias de ponteiros. Isso significa que ele deve pegar um endereço base e navegar por uma lista de offsets para chegar a um endereço final de memória onde o valor está armazenado.
+
+Funções que devem ser implementadas:
+
+resolve_pointer_chain(base_address, offsets): Recebe um endereço base e uma lista de offsets e retorna o endereço final onde o valor está armazenado.
+
+Scanner de Padrões de Bytes (AOB):
+
+O programa deve ser capaz de scanear padrões de bytes (AOB) na memória, com suporte a wildcards (??), permitindo encontrar localizações de memória onde o padrão de bytes pode variar.
+
+Funções que devem ser implementadas:
+
+scan_aob(pattern): Realiza a varredura de memória em busca de um padrão de bytes específico, com suporte a wildcards.
+
+Interface Gráfica (GUI):
+
+Criar uma interface gráfica simples, com uma lista de processos em execução, campos para procurar valores na memória e exibir resultados.
+
+A interface deve permitir:
+
+Seleção de processo para escanear
+
+Escolha de tipo de dado (int, float, double)
+
+Realização de primeiro e próximo scan
+
+Exibição dos resultados encontrados
+
+Capacidade de escrever novos valores na memória
+
+A interface gráfica pode ser feita usando PyQt5 ou Tkinter, e a interface deve ser simples e intuitiva.
+
+Armazenamento de Sessões de Scan:
+
+O programa deve permitir salvar e carregar sessões de scan. Isso significa que os resultados dos scans (endereços encontrados e valores) devem ser armazenados em um arquivo, como um arquivo JSON.
+
+O programa deve permitir ao usuário continuar o scan a partir de uma sessão salva.
+
+✅ Estrutura do Projeto Esperada:
+bash
+Copiar
+Editar
+PyCheatEngine/
+├── __init__.py
+├── memory.py              # Leitura/escrita de memória
+├── scanner.py             # Scanner de valores
+├── pointer.py             # Resolução de ponteiros
+├── aob_scan.py            # Scanner de AOB
+├── ui/
+│   ├── __init__.py
+│   ├── gui.py             # Interface gráfica
+│   └── cli.py             # Interface CLI
+├── scan_state.json        # Armazenamento de sessões de scan
+└── main.py                # Menu principal
+✅ Detalhes de Implementação:
+Leitura e Escrita de Memória (memory.py):
+
+A função de leitura de memória deve ser capaz de acessar diretamente os endereços de memória de um processo e ler os valores armazenados em diferentes tipos de dados.
+
+A função de escrita de memória deve ser capaz de alterar os valores de um processo, alterando a memória diretamente.
+
+Funções a serem criadas:
+
+read_int(address): Lê um valor inteiro na memória.
+
+write_int(address, value): Escreve um valor inteiro na memória.
+
+read_float(address): Lê um valor float na memória.
+
+write_float(address, value): Escreve um valor float na memória.
+
+read_string(address, length): Lê uma string na memória.
+
+write_string(address, value): Escreve uma string na memória.
+
+Scanner de Memória (scanner.py):
+
+O scanner deve ser capaz de procurar por valores exatos e realizar comparações com os resultados anteriores.
+
+Funções a serem criadas:
+
+first_scan(value): Realiza o primeiro scan por um valor.
+
+next_scan(value, compare_type): Realiza um próximo scan com base em comparações como increased, decreased, etc.
+
+list_results(): Exibe os resultados encontrados.
+
+Resolução de Ponteiros (pointer.py):
+
+Resolver cadeias de ponteiros permite acessar valores em locais de memória encadeados, sendo essencial para jogos que usam múltiplos ponteiros para armazenar dados.
+
+Função a ser criada:
+
+resolve_pointer_chain(base_address, offsets): Resolve a cadeia de ponteiros com base no endereço base e offsets fornecidos.
+
+Scanner de AOB (aob_scan.py):
+
+O scanner de AOB (Array of Bytes) permite procurar por padrões de bytes em regiões de memória.
+
+Função a ser criada:
+
+scan_aob(pattern): Realiza a busca de um padrão de bytes na memória.
+
+Interface Gráfica (gui.py):
+
+A interface gráfica deve permitir ao usuário escolher um processo e realizar scans facilmente, mostrando os resultados e permitindo que os valores sejam alterados.
+
+Funções a serem criadas:
+
+create_main_window(): Cria a janela principal da interface gráfica.
+
+create_results_list(): Exibe a lista de resultados do scan.
+
+create_write_value_field(): Campo para escrever valores encontrados.
+
+Armazenamento de Sessões (scan_state.json):
+
+As sessões de scan devem ser salvas em um arquivo JSON, permitindo que o usuário continue o scan a partir de onde parou.
+
+Funções a serem criadas:
+
+save_scan_state(): Salva os resultados do scan em um arquivo JSON.
+
+load_scan_state(): Carrega os resultados do scan a partir de um arquivo JSON.
+
+✅ Objetivos de Execução:
+Criar funções para leitura e escrita de memória.
+
+Implementar o scanner de valores com a capacidade de realizar first_scan e next_scan.
+
+Criar a função de resolução de ponteiros (pointer chains).
+
+Implementar o scanner de AOB.
+
+Desenvolver a interface gráfica com PyQt5 ou Tkinter.
+
+Implementar salvamento e carregamento de sessões de scan.
+
+Garantir que o programa seja eficiente e seguro ao interagir com os processos.
