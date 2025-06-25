@@ -21,5 +21,9 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py --gui"
+args = "python web_demo.py"
 waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
