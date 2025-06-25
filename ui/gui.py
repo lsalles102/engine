@@ -2155,38 +2155,6 @@ class CheatEngineGUI:
 
         dec_var.trace('w', lambda *args: update_hex())
         hex_var.trace('w', lambda *args: update_dec())
-        calc_window.title("Calculadora Hexadecimal")
-        calc_window.geometry("300x200")
-
-        ttk.Label(calc_window, text="Valor Decimal:").pack(pady=5)
-        dec_var = tk.StringVar()
-        dec_entry = ttk.Entry(calc_window, textvariable=dec_var)
-        dec_entry.pack(pady=5)
-
-        ttk.Label(calc_window, text="Valor Hexadecimal:").pack(pady=5)
-        hex_var = tk.StringVar()
-        hex_entry = ttk.Entry(calc_window, textvariable=hex_var)
-        hex_entry.pack(pady=5)
-
-        def update_hex():
-            try:
-                dec_val = int(dec_var.get())
-                hex_var.set(f"0x{dec_val:X}")
-            except:
-                pass
-
-        def update_dec():
-            try:
-                hex_val = hex_var.get()
-                if hex_val.startswith('0x'):
-                    hex_val = hex_val[2:]
-                dec_val = int(hex_val, 16)
-                dec_var.set(str(dec_val))
-            except:
-                pass
-
-        dec_var.trace('w', lambda *args: update_hex())
-        hex_var.trace('w', lambda *args: update_dec())
 
     def open_type_converter(self):
         """Abre conversor de tipos"""
