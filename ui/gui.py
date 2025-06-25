@@ -130,6 +130,13 @@ class CheatEngineGUI:
         scan_group = ttk.LabelFrame(left_frame, text="Configurações de Scan")
         scan_group.pack(fill=tk.X, pady=5)
         
+        # Frame de dicas
+        tips_frame = ttk.Frame(scan_group)
+        tips_frame.pack(fill=tk.X, pady=2)
+        tips_label = ttk.Label(tips_frame, text="💡 DICA: Para próximo scan, altere o valor no jogo primeiro!", 
+                              font=('TkDefaultFont', 8), foreground='blue')
+        tips_label.pack(anchor=tk.W)
+        
         ttk.Label(scan_group, text="Tipo de Dado:").pack(anchor=tk.W)
         self.data_type_var = tk.StringVar(value="int32")
         data_type_combo = ttk.Combobox(scan_group, textvariable=self.data_type_var,
@@ -148,6 +155,11 @@ class CheatEngineGUI:
                                              "unchanged", "greater_than", "less_than"],
                                       state="readonly")
         scan_type_combo.pack(pady=2)
+        
+        # Label explicativo
+        help_label = ttk.Label(scan_group, text="exact=valor específico | changed=qualquer mudança | increased/decreased=direção", 
+                              font=('TkDefaultFont', 7), foreground='gray')
+        help_label.pack(anchor=tk.W)
         
         # Botões de scan
         button_frame = ttk.Frame(scan_group)
@@ -612,16 +624,22 @@ class CheatEngineGUI:
             
             # Mensagem de status
             if is_first_scan:
-                status_msg = f"Primeiro scan completado: {results_count} resultados encontrados"
+                status_msg = f"✓ Primeiro scan: {results_count} resultados encontrados"
+                if results_count > 0:
+                    status_msg += " - Agora altere o valor no jogo e use 'Next Scan'"
             else:
-                status_msg = f"Próximo scan completado: {results_count} resultados restantes"
+                status_msg = f"✓ Próximo scan: {results_count} resultados restantes"
+                if results_count == 0:
+                    status_msg += " - Valor não mudou ou não foi encontrado"
+                elif results_count == 1:
+                    status_msg += " - Endereço encontrado! 🎯"
                 
             print(f"[GUI] {status_msg}")
             self.update_status(status_msg)
             
             # Se não há resultados e não é primeiro scan, sugere dica
             if results_count == 0 and not is_first_scan:
-                self.update_status("Nenhum resultado encontrado. Tente alterar o valor no jogo e faça outro scan.")
+                self.update_status("✓ Nenhum resultado encontrado. DICA: Altere o valor no jogo/aplicação primeiro, depois use 'changed' ou 'increased'/'decreased'.")
                 
         except Exception as e:
             print(f"[GUI ERROR] Erro em _scan_completed: {e}")
