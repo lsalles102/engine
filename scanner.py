@@ -94,9 +94,9 @@ class MemoryScanner:
         """Lê um valor específico no endereço dado"""
         try:
             if data_type == DataType.INT32:
-                return self.memory_manager.read_int(address)
+                return self.memory_manager.read_int32(address)
             elif data_type == DataType.INT64:
-                return self.memory_manager.read_long(address)
+                return self.memory_manager.read_int64(address)
             elif data_type == DataType.FLOAT:
                 return self.memory_manager.read_float(address)
             elif data_type == DataType.DOUBLE:
@@ -434,17 +434,6 @@ class MemoryScanner:
             'attached_process': self.memory_manager.process_id if self.memory_manager.is_attached() else None
         }
 
-    def update_results(self):
-        """Atualiza valores de todos os resultados"""
-        for result in self.scan_results:
-            current_value = self._read_value_at_address(result.address, result.data_type)
-            if current_value is not None:
-                result.update_value(current_value)
-
-    def cancel_scan(self):
-        """Cancela o scan atual"""
-        self.is_scanning = False
-
     def clear_results(self):
         """Limpa todos os resultados"""
         self.scan_results.clear()
@@ -456,3 +445,13 @@ class MemoryScanner:
     def is_scan_running(self) -> bool:
         """Verifica se um scan está em execução"""
         return self.is_scanning
+
+    def get_process_info(self) -> Dict[str, Any]:
+        """Retorna informações do processo anexado"""
+        if not self.memory_manager.is_attached():
+            return {}
+        
+        return {
+            'process_id': self.memory_manager.process_id,
+            'attached': True
+        }
