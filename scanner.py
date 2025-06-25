@@ -1,13 +1,15 @@
 """
-Módulo Scanner de Memória
-Implementa funcionalidades de scan de valores na memória com comparações
+Scanner de Memória para PyCheatEngine
+Implementa funcionalidades de busca e comparação de valores na memória
 """
 
 import struct
-import time
 import threading
-from typing import List, Dict, Any, Optional, Callable
+import time
+import sys
+import os
 from enum import Enum
+from typing import List, Optional, Callable, Any, Union
 
 from memory import MemoryManager
 

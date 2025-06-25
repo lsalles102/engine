@@ -9,12 +9,18 @@ from typing import List, Optional
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from memory import MemoryManager
-from scanner import MemoryScanner, ScanType, DataType
-from pointer import PointerResolver
-from aob_scan import AOBScanner
+# Adiciona o diretório pai ao path para imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from memory import MemoryManager
+    from scanner import MemoryScanner, ScanType, DataType
+    from pointer import PointerResolver
+    from aob_scan import AOBScanner
+except ImportError as e:
+    print(f"Erro ao importar módulos: {e}")
+    sys.exit(1)
 
 class CheatEngineCLI:
     """Interface de linha de comando para PyCheatEngine"""
