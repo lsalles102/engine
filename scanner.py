@@ -167,18 +167,26 @@ class MemoryScanner:
             elif scan_type == ScanType.INCREASED:
                 if previous_value is None:
                     return False
-                if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
-                    if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
-                        return False
-                return current_value > previous_value
+                try:
+                    if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
+                        if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
+                            return False
+                        return current_value > previous_value
+                    return False
+                except (TypeError, OverflowError):
+                    return False
 
             elif scan_type == ScanType.DECREASED:
                 if previous_value is None:
                     return False
-                if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
-                    if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
-                        return False
-                return current_value < previous_value
+                try:
+                    if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
+                        if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
+                            return False
+                        return current_value < previous_value
+                    return False
+                except (TypeError, OverflowError):
+                    return False
 
             elif scan_type == ScanType.CHANGED:
                 return previous_value is not None and current_value != previous_value
@@ -328,8 +336,11 @@ class MemoryScanner:
             while current_address < self.end_address and self.is_scanning:
                 # Verifica se endereço está dentro dos limites
                 if current_address < 0 or current_address > 0x7FFFFFFF:
-                    current_address += chunk_size
-                    continue
+                    break  # Para o loop em vez de continuar infinitamente
+                
+                # Proteção adicional contra overflow
+                if current_address + chunk_size < current_address:
+                    break
 
                 # Atualiza progresso com proteção contra divisão por zero
                 if total_range > 0:

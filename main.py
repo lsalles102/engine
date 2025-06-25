@@ -20,17 +20,20 @@ from typing import Optional
 def check_admin_privileges() -> bool:
     """
     Verifica se o programa está sendo executado com privilégios administrativos
-    
+
     Returns:
         bool: True se tem privilégios administrativos, False caso contrário
     """
     try:
-        if platform.system() == "Windows":
-            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        if platform.system() == 'Windows':
+            import ctypes
+            try:
+                return ctypes.windll.shell32.IsUserAnAdmin() != 0
+            except (AttributeError, OSError):
+                return False
         else:
-            # Para sistemas Unix-like
             return os.geteuid() == 0
-    except Exception:
+    except (ImportError, AttributeError, OSError):
         return False
 
 def request_admin_privileges():
@@ -81,7 +84,7 @@ def show_banner():
 def show_main_menu() -> str:
     """
     Exibe o menu principal e retorna a escolha do usuário
-    
+
     Returns:
         str: Opção escolhida pelo usuário
     """
@@ -97,7 +100,7 @@ Escolha uma opção:
 
 """
     print(menu)
-    
+
     while True:
         try:
             choice = input("Digite sua opção (0-5): ").strip()
@@ -112,36 +115,36 @@ def show_system_info():
     """Exibe informações do sistema"""
     try:
         import psutil
-        
+
         print("\n" + "="*60)
         print("INFORMAÇÕES DO SISTEMA")
         print("="*60)
-        
+
         # Informações básicas
         print(f"Sistema Operacional: {platform.system()} {platform.release()}")
         print(f"Arquitetura: {platform.machine()}")
         print(f"Versão Python: {sys.version}")
-        
+
         # Informações de memória
         memory = psutil.virtual_memory()
         print(f"Memória Total: {memory.total / (1024**3):.2f} GB")
         print(f"Memória Disponível: {memory.available / (1024**3):.2f} GB")
         print(f"Uso de Memória: {memory.percent}%")
-        
+
         # Informações de CPU
         print(f"CPU: {platform.processor()}")
         print(f"Núcleos: {psutil.cpu_count(logical=False)} físicos, {psutil.cpu_count(logical=True)} lógicos")
-        
+
         # Privilégios
         is_admin = check_admin_privileges()
         print(f"Privilégios Administrativos: {'Sim' if is_admin else 'Não'}")
-        
+
         # Número de processos
         process_count = len(psutil.pids())
         print(f"Processos em Execução: {process_count}")
-        
+
         print("="*60)
-        
+
     except ImportError:
         print("\nErro: Biblioteca 'psutil' não encontrada.")
         print("Instale com: pip install psutil")
@@ -212,18 +215,18 @@ def run_gui():
     try:
         print("\nInicializando interface gráfica...")
         print("Aguarde enquanto a janela é carregada...")
-        
+
         # Adiciona o diretório atual ao path para resolver imports
         import sys
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        
+
         import ui.gui
         CheatEngineGUI = ui.gui.CheatEngineGUI
-        
+
         # Cria e executa a GUI
         gui = CheatEngineGUI()
         gui.run()
-        
+
     except ImportError as e:
         print(f"\nErro ao importar interface gráfica: {e}")
         print("Verifique se o tkinter está instalado corretamente.")
@@ -239,18 +242,18 @@ def run_cli():
     """Executa a interface de linha de comando"""
     try:
         print("\nInicializando interface de linha de comando...")
-        
+
         # Adiciona o diretório atual ao path para resolver imports
         import sys
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        
+
         import ui.cli
         CheatEngineCLI = ui.cli.CheatEngineCLI
-        
+
         # Cria e executa a CLI
         cli = CheatEngineCLI()
         cli.run()
-        
+
     except Exception as e:
         print(f"\nErro na interface CLI: {e}")
 
@@ -265,10 +268,10 @@ def run_web_demo():
         print("• Log em tempo real das operações")
         print("• Compatível com qualquer navegador")
         print("\nAguarde enquanto o servidor web é iniciado...")
-        
+
         # Executa o web demo completo
         os.system("python web_demo_completo.py")
-        
+
     except KeyboardInterrupt:
         print("\n\nDemo web interrompido pelo usuário.")
     except Exception as e:
@@ -279,7 +282,7 @@ def check_dependencies():
     """Verifica se as dependências estão instaladas"""
     required_modules = ['psutil', 'tkinter']
     missing_modules = []
-    
+
     for module in required_modules:
         try:
             if module == 'tkinter':
@@ -288,12 +291,12 @@ def check_dependencies():
                 __import__(module)
         except ImportError:
             missing_modules.append(module)
-    
+
     if missing_modules:
         print(f"\nAVISO: Módulos faltando: {', '.join(missing_modules)}")
         print("Instale com: pip install " + " ".join(missing_modules))
         return False
-    
+
     return True
 
 def parse_arguments():
@@ -309,7 +312,7 @@ Exemplos de uso:
   python main.py --info       # Informações do sistema
         """
     )
-    
+
     parser.add_argument('--gui', action='store_true',
                        help='Executa diretamente a interface gráfica')
     parser.add_argument('--cli', action='store_true',
@@ -319,7 +322,7 @@ Exemplos de uso:
     parser.add_argument('--no-admin-check', action='store_true',
                        help='Pula verificação de privilégios administrativos')
     parser.add_argument('--version', action='version', version='PyCheatEngine 1.0.0')
-    
+
     return parser.parse_args()
 
 def main():
@@ -327,22 +330,22 @@ def main():
     try:
         # Analisa argumentos
         args = parse_arguments()
-        
+
         # Mostra banner
         show_banner()
-        
+
         # Verifica dependências
         if not check_dependencies():
             print("\nInstale as dependências necessárias antes de continuar.")
             return 1
-        
+
         # Verifica privilégios administrativos
         if not args.no_admin_check:
             if not check_admin_privileges():
                 print("\n⚠️  AVISO: O programa não está sendo executado com privilégios administrativos!")
                 print("Algumas funcionalidades podem não funcionar corretamente.")
                 print("Para melhor experiência, execute como administrador.")
-                
+
                 if platform.system() == "Windows":
                     response = input("\nDeseja tentar executar como administrador? (s/N): ").lower()
                     if response in ['s', 'sim', 'y', 'yes']:
@@ -350,11 +353,11 @@ def main():
                         return 0
                 else:
                     print(f"Execute: sudo python3 {sys.argv[0]}")
-                
+
                 response = input("\nContinuar mesmo assim? (s/N): ").lower()
                 if response not in ['s', 'sim', 'y', 'yes']:
                     return 0
-        
+
         # Execução baseada em argumentos
         if args.info:
             show_system_info()
@@ -365,11 +368,11 @@ def main():
         elif args.cli:
             run_cli()
             return 0
-        
+
         # Menu principal interativo
         while True:
             choice = show_main_menu()
-            
+
             if choice == '0':
                 print("\nObrigado por usar o PyCheatEngine!")
                 break
@@ -386,13 +389,13 @@ def main():
                     print("Execute o programa como administrador para melhor funcionalidade.")
             elif choice == '5':
                 show_help()
-            
+
             # Pausa antes de mostrar o menu novamente
             if choice != '0':
                 input("\nPressione Enter para continuar...")
-        
+
         return 0
-        
+
     except KeyboardInterrupt:
         print("\n\nPrograma interrompido pelo usuário.")
         return 1
@@ -408,7 +411,7 @@ if __name__ == "__main__":
             ctypes.windll.kernel32.SetConsoleTitleW("PyCheatEngine v1.0.0")
         except:
             pass
-    
+
     # Executa o programa principal
     exit_code = main()
     sys.exit(exit_code)

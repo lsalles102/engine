@@ -491,13 +491,19 @@ class CheatEngineGUI:
     def _perform_next_scan(self, value, scan_type):
         """Executa o próximo scan em thread separada"""
         try:
+            # Verifica se o scanner ainda está válido
+            if not hasattr(self, 'scanner') or not self.scanner:
+                raise RuntimeError("Scanner não inicializado")
+                
             results = self.scanner.next_scan(value, scan_type)
             
-            # Atualiza UI na thread principal
-            self.root.after(0, self._scan_completed, results, False)
+            # Verifica se a UI ainda existe antes de atualizar
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, self._scan_completed, results, False)
             
         except Exception as e:
-            self.root.after(0, self._scan_error, str(e))
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, self._scan_error, str(e))
     
     def _scan_completed(self, results, is_first_scan):
         """Callback para scan completado"""
@@ -539,8 +545,14 @@ class CheatEngineGUI:
     
     def update_scan_progress(self, progress):
         """Atualiza barra de progresso do scan"""
-        self.scan_progress['value'] = progress
-        self.root.update_idletasks()
+        try:
+            if hasattr(self, 'scan_progress') and self.scan_progress:
+                self.scan_progress['value'] = progress
+            if hasattr(self, 'root') and self.root:
+                self.root.update_idletasks()
+        except (tk.TclError, AttributeError):
+            # UI foi destruída ou não está disponível
+            pass
     
     def update_aob_progress(self, progress):
         """Atualiza barra de progresso do AOB"""
@@ -1023,10 +1035,45 @@ Desenvolvido com Python, Tkinter e ctypes
     def run(self):
         """Executa a interface gráfica"""
         try:
+            # Configura handler para fechamento da janela
+            self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
             self.root.mainloop()
         except KeyboardInterrupt:
-            self.root.quit()
+            self.on_closing()
         finally:
-            # Cleanup
-            if self.memory_manager.is_attached():
+            self.cleanup_resources()
+    
+    def on_closing(self):
+        """Handler para fechamento da aplicação"""
+        # Cancela scans em andamento
+        if hasattr(self, 'scanner'):
+            self.scanner.cancel_scan()
+        if hasattr(self, 'aob_scanner'):
+            self.aob_scanner.cancel_scan()
+        
+        # Para atualização automática
+        self.auto_update_enabled.set(False)
+        
+        self.cleanup_resources()
+        self.root.quit()
+        self.root.destroy()
+    
+    def cleanup_resources(self):
+        """Limpa todos os recursos"""
+        try:
+            # Desanexa do processo
+            if hasattr(self, 'memory_manager') and self.memory_manager.is_attached():
                 self.memory_manager.detach_process()
+            
+            # Cancela threads
+            if hasattr(self, 'scan_thread') and self.scan_thread and self.scan_thread.is_alive():
+                # Marca para parar e espera um pouco
+                if hasattr(self, 'scanner'):
+                    self.scanner.cancel_scan()
+                
+            if hasattr(self, 'aob_thread') and self.aob_thread and self.aob_thread.is_alive():
+                if hasattr(self, 'aob_scanner'):
+                    self.aob_scanner.cancel_scan()
+                    
+        except Exception as e:
+            print(f"Erro durante cleanup: {e}")

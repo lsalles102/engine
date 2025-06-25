@@ -99,10 +99,24 @@ class MemoryManager:
         if not self.is_attached():
             raise RuntimeError("Não está anexado a nenhum processo")
             
-        if address < 0 or address > 0x7FFFFFFFFFFFFFFF:
+        # Validação mais rigorosa de endereços
+        if not isinstance(address, int) or address < 0:
             return None
             
-        if size <= 0 or size > 0x10000:
+        # Limite máximo baseado na arquitetura
+        max_address = 0x7FFFFFFF if platform.machine().endswith('32') else 0x7FFFFFFFFFFFFFFF
+        if address > max_address:
+            return None
+            
+        if not isinstance(size, int) or size <= 0 or size > 0x100000:  # Máximo 1MB
+            return None
+        
+        # Verifica overflow na soma
+        try:
+            end_address = address + size
+            if end_address < address or end_address > max_address:
+                return None
+        except OverflowError:
             return None
         
         try:
