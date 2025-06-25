@@ -276,13 +276,45 @@ class MemoryScanner:
         matched_count = 0
 
         try:
-            new_results = []
+            # PRIMEIRO: Atualiza todos os valores lendo da memória atual
+            print(f"[NEXT_SCAN] Passo 1: Atualizando valores da memória...")
             total_results = len(self.scan_results)
-            print(f"[NEXT_SCAN] Processando {total_results} resultados...")
+            
+            for i, result in enumerate(self.scan_results):
+                if not self.is_scanning:
+                    break
+                    
+                # Atualiza progresso da leitura (0-50%)
+                progress = int((i / total_results) * 50) if total_results > 0 else 0
+                if progress != self.scan_progress:
+                    self.scan_progress = progress
+                    if self.progress_callback:
+                        try:
+                            self.progress_callback(progress)
+                        except Exception as e:
+                            print(f"[NEXT_SCAN WARNING] Erro no callback de progresso: {e}")
+                
+                # Lê valor atual da memória e atualiza o resultado
+                try:
+                    current_value = self._read_value_at_address(result.address, result.data_type)
+                    if current_value is not None:
+                        # Salva o valor anterior antes de atualizar
+                        result.previous_value = result.value
+                        result.value = current_value  # Atualiza com valor atual da memória
+                        
+                        if i < 3:  # Log apenas dos primeiros 3
+                            print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={result.previous_value}, atual={current_value}")
+                    else:
+                        # Remove resultados que não podem ser lidos
+                        result.value = None
+                except Exception as e:
+                    if i < 5:  # Log apenas para os primeiros erros
+                        print(f"[NEXT_SCAN WARNING] Erro ao ler endereço 0x{result.address:X}: {e}")
+                    result.value = None
 
-            if total_results == 0:
-                print("[NEXT_SCAN] Nenhum resultado para processar")
-                return []
+            # SEGUNDO: Agora filtra baseado na comparação
+            print(f"[NEXT_SCAN] Passo 2: Filtrando resultados...")
+            new_results = []
 
             for i, result in enumerate(self.scan_results):
                 if not self.is_scanning:
@@ -291,87 +323,72 @@ class MemoryScanner:
 
                 processed_count += 1
 
-                # Atualiza progresso a cada 10 resultados ou no final
-                if i % 10 == 0 or i == total_results - 1:
-                    progress = int((i / total_results) * 100) if total_results > 0 else 100
-                    if progress != self.scan_progress:
-                        self.scan_progress = progress
-                        if self.progress_callback:
-                            try:
-                                self.progress_callback(progress)
-                            except Exception as e:
-                                print(f"[NEXT_SCAN WARNING] Erro no callback de progresso: {e}")
+                # Atualiza progresso da filtragem (50-100%)
+                progress = 50 + int((i / total_results) * 50) if total_results > 0 else 100
+                if progress != self.scan_progress:
+                    self.scan_progress = progress
+                    if self.progress_callback:
+                        try:
+                            self.progress_callback(progress)
+                        except Exception as e:
+                            print(f"[NEXT_SCAN WARNING] Erro no callback de progresso: {e}")
 
-                # Valida se o resultado ainda é válido
-                if not hasattr(result, 'address') or not hasattr(result, 'data_type') or not hasattr(result, 'value'):
-                    print(f"[NEXT_SCAN WARNING] Resultado inválido no índice {i}")
+                # Pula se não conseguiu ler o valor
+                if result.value is None:
                     continue
 
-                # Lê valor atual da memória
+                # Compara valores usando lógica correta do Cheat Engine
                 try:
-                    current_value = self._read_value_at_address(result.address, result.data_type)
+                    match = False
+                    current_value = result.value  # Valor atual já atualizado
+                    previous_value = result.previous_value  # Valor anterior
                     
-                    if current_value is not None:
-                        # Log detalhado apenas para os primeiros 5 resultados
-                        if i < 5:
-                            print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={result.value}, atual={current_value}, procurado={value}")
-
-                        # Compara valores usando lógica correta do Cheat Engine
-                        try:
-                            match = False
-                            
-                            if scan_type == ScanType.EXACT:
-                                # Compara valor atual com o valor digitado pelo usuário
-                                match = (current_value == value)
-                                
-                            elif scan_type == ScanType.INCREASED:
-                                # Verifica se valor atual é maior que o valor anterior (stored)
-                                match = (current_value > result.value)
-                                
-                            elif scan_type == ScanType.DECREASED:
-                                # Verifica se valor atual é menor que o valor anterior (stored)
-                                match = (current_value < result.value)
-                                
-                            elif scan_type == ScanType.CHANGED:
-                                # Verifica se valor atual é diferente do valor anterior
-                                match = (current_value != result.value)
-                                
-                            elif scan_type == ScanType.UNCHANGED:
-                                # Verifica se valor atual é igual ao valor anterior
-                                match = (current_value == result.value)
-                                
-                            elif scan_type == ScanType.GREATER_THAN:
-                                # Compara valor atual com o valor digitado
-                                match = (current_value > value)
-                                
-                            elif scan_type == ScanType.LESS_THAN:
-                                # Compara valor atual com o valor digitado
-                                match = (current_value < value)
-                                
-                            elif scan_type == ScanType.BETWEEN:
-                                # Verifica se valor atual está entre os valores fornecidos
-                                if isinstance(value, (list, tuple)) and len(value) == 2:
-                                    match = (value[0] <= current_value <= value[1])
-                            
-                            if i < 5:  # Log detalhado para debug
-                                print(f"[NEXT_SCAN] Comparação {scan_type.value}: resultado={match}")
-                            
-                            if match:
-                                # Atualiza o valor armazenado com o valor atual
-                                result.update_value(current_value)
-                                new_results.append(result)
-                                matched_count += 1
-                                
-                        except Exception as comp_error:
-                            print(f"[NEXT_SCAN ERROR] Erro na comparação para endereço 0x{result.address:X}: {comp_error}")
-                            continue
-                            
-                    else:
-                        if i < 10:  # Log apenas para os primeiros endereços que falharam
-                            print(f"[NEXT_SCAN WARNING] Não foi possível ler endereço 0x{result.address:X}")
+                    if scan_type == ScanType.EXACT:
+                        # Compara valor atual com o valor digitado pelo usuário
+                        match = (current_value == value)
                         
-                except Exception as read_error:
-                    print(f"[NEXT_SCAN ERROR] Erro ao ler endereço 0x{result.address:X}: {read_error}")
+                    elif scan_type == ScanType.INCREASED:
+                        # Verifica se valor atual é maior que o valor anterior
+                        if previous_value is not None:
+                            match = (current_value > previous_value)
+                        
+                    elif scan_type == ScanType.DECREASED:
+                        # Verifica se valor atual é menor que o valor anterior
+                        if previous_value is not None:
+                            match = (current_value < previous_value)
+                        
+                    elif scan_type == ScanType.CHANGED:
+                        # Verifica se valor atual é diferente do valor anterior
+                        if previous_value is not None:
+                            match = (current_value != previous_value)
+                        
+                    elif scan_type == ScanType.UNCHANGED:
+                        # Verifica se valor atual é igual ao valor anterior
+                        if previous_value is not None:
+                            match = (current_value == previous_value)
+                        
+                    elif scan_type == ScanType.GREATER_THAN:
+                        # Compara valor atual com o valor digitado
+                        match = (current_value > value)
+                        
+                    elif scan_type == ScanType.LESS_THAN:
+                        # Compara valor atual com o valor digitado
+                        match = (current_value < value)
+                        
+                    elif scan_type == ScanType.BETWEEN:
+                        # Verifica se valor atual está entre os valores fornecidos
+                        if isinstance(value, (list, tuple)) and len(value) == 2:
+                            match = (value[0] <= current_value <= value[1])
+                    
+                    if i < 3:  # Log detalhado para debug dos primeiros 3
+                        print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={previous_value}, atual={current_value}, procurado={value}, match={match}")
+                    
+                    if match:
+                        new_results.append(result)
+                        matched_count += 1
+                        
+                except Exception as comp_error:
+                    print(f"[NEXT_SCAN ERROR] Erro na comparação para endereço 0x{result.address:X}: {comp_error}")
                     continue
 
             # Atualiza resultados
