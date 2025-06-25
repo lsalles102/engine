@@ -521,6 +521,43 @@ class MemoryScanner:
         """Verifica se um scan está em execução"""
         return self.is_scanning
 
+    def get_result_count(self) -> int:
+        """Retorna o número de resultados do scan"""
+        return len(self.scan_results)
+
+    def write_value_to_address(self, address: int, value: Any, data_type: DataType) -> bool:
+        """
+        Escreve um valor no endereço especificado
+        
+        Args:
+            address: Endereço de memória
+            value: Valor a ser escrito
+            data_type: Tipo do dado
+            
+        Returns:
+            bool: True se escreveu com sucesso
+        """
+        try:
+            if data_type == DataType.INT32:
+                return self.memory_manager.write_int32(address, int(value))
+            elif data_type == DataType.INT64:
+                return self.memory_manager.write_int64(address, int(value))
+            elif data_type == DataType.FLOAT:
+                return self.memory_manager.write_float(address, float(value))
+            elif data_type == DataType.DOUBLE:
+                return self.memory_manager.write_double(address, float(value))
+            elif data_type == DataType.STRING:
+                return self.memory_manager.write_string(address, str(value))
+            elif data_type == DataType.BYTES:
+                if isinstance(value, str):
+                    value = bytes.fromhex(value.replace(' ', ''))
+                return self.memory_manager.write_memory(address, value)
+            
+            return False
+        except Exception as e:
+            print(f"Erro ao escrever valor: {e}")
+            return False
+
     def get_process_info(self) -> Dict[str, Any]:
         """Retorna informações do processo anexado"""
         if not self.memory_manager.is_attached():
