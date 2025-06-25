@@ -141,6 +141,10 @@ class CheatEngineGUI:
                               font=('TkDefaultFont', 8), foreground='green')
         tips_label2.pack(anchor=tk.W)
         
+        tips_label3 = ttk.Label(tips_frame, text="⌨️ ATALHOS: Ctrl+C=Copiar endereço | Clique direito=Menu | Enter=Editar", 
+                              font=('TkDefaultFont', 8), foreground='purple')
+        tips_label3.pack(anchor=tk.W)
+        
         ttk.Label(scan_group, text="Tipo de Dado:").pack(anchor=tk.W)
         self.data_type_var = tk.StringVar(value="int32")
         data_type_combo = ttk.Combobox(scan_group, textvariable=self.data_type_var,
@@ -198,15 +202,20 @@ class CheatEngineGUI:
         self.results_tree = ttk.Treeview(results_group, columns=columns, show="headings", height=15)
         
         self.results_tree.heading("address", text="Endereço")
-        self.results_tree.heading("value", text="Valor Atual")
+        self.results_tree.heading("value", text="Valor Atual") 
         self.results_tree.heading("type", text="Tipo")
         
-        self.results_tree.column("address", width=120)
-        self.results_tree.column("value", width=100)
-        self.results_tree.column("type", width=80)
+        self.results_tree.column("address", width=120, anchor="w")
+        self.results_tree.column("value", width=100, anchor="e")
+        self.results_tree.column("type", width=80, anchor="center")
         
-        # Configura cores de seleção
-        self.results_tree.configure(selectmode='browse')  # Permite apenas uma seleção
+        # Configura seleção múltipla e cores
+        self.results_tree.configure(selectmode='extended')  # Permite seleção múltipla
+        
+        # Configura tags para cores alternadas
+        self.results_tree.tag_configure('odd', background='#f0f0f0')
+        self.results_tree.tag_configure('even', background='white')
+        self.results_tree.tag_configure('selected', background='#0078d4', foreground='white')
         
         # Scrollbar para resultados
         results_scroll = ttk.Scrollbar(results_group, orient=tk.VERTICAL, command=self.results_tree.yview)
@@ -218,6 +227,14 @@ class CheatEngineGUI:
         # Bind para duplo clique e seleção simples
         self.results_tree.bind('<Double-1>', self.on_result_double_click)
         self.results_tree.bind('<ButtonRelease-1>', self.on_result_select)
+        self.results_tree.bind('<Button-3>', self.show_results_context_menu)  # Clique direito
+        
+        # Bind para teclas de atalho
+        self.results_tree.bind('<Control-c>', self.copy_selected_address)
+        self.results_tree.bind('<Control-a>', self.select_all_results)
+        
+        # Permite que o Treeview receba foco
+        self.results_tree.focus_set()
         
         # Controles de valor
         value_frame = ttk.Frame(right_frame)
@@ -230,6 +247,10 @@ class CheatEngineGUI:
         
         # Bind Enter para escrever valor rapidamente
         self.new_value_entry.bind('<Return>', lambda e: self.write_selected_value())
+        
+        # Bind teclas do Treeview
+        self.root.bind('<Return>', self.on_enter_key)
+        self.root.bind('<Delete>', self.on_delete_key)
         
         ttk.Button(value_frame, text="Escrever Valor", 
                   command=self.write_selected_value).pack(side=tk.LEFT, padx=5)
@@ -735,12 +756,15 @@ class CheatEngineGUI:
         
         # Adiciona novos resultados (máximo 1000 para performance)
         results = self.scanner.scan_results[:1000]
-        for result in results:
-            self.results_tree.insert('', 'end', values=(
+        for i, result in enumerate(results):
+            # Alterna cores das linhas
+            tag = 'even' if i % 2 == 0 else 'odd'
+            
+            item_id = self.results_tree.insert('', 'end', values=(
                 f"0x{result.address:X}",
                 str(result.value),
                 result.data_type.value
-            ))
+            ), tags=(tag,))
         
         # Atualiza contador
         total_results = self.scanner.get_result_count()
@@ -748,6 +772,11 @@ class CheatEngineGUI:
             self.result_count_label.config(text=f"Mostrando 1000 de {total_results} resultados")
         else:
             self.result_count_label.config(text=f"{total_results} resultados")
+            
+        # Seleciona o primeiro item se houver resultados
+        if results:
+            self.results_tree.selection_set(self.results_tree.get_children()[0])
+            self.results_tree.focus_set()
     
     def clear_results_display(self):
         """Limpa a exibição dos resultados"""
@@ -766,12 +795,95 @@ class CheatEngineGUI:
             if not self.new_value_var.get():
                 self.new_value_var.set(str(current_value))
 
-    def on_result_double_click(self, event):
-        """Callback para duplo clique em resultado"""
+    def show_results_context_menu(self, event):
+        """Mostra menu de contexto para resultados"""
+        selection = self.results_tree.selection()
+        if selection:
+            context_menu = tk.Menu(self.root, tearoff=0)
+            context_menu.add_command(label="Copiar Endereço", command=self.copy_selected_address)
+            context_menu.add_command(label="Copiar Valor", command=self.copy_selected_value)
+            context_menu.add_command(label="Copiar Endereço + Valor", command=self.copy_address_and_value)
+            context_menu.add_separator()
+            context_menu.add_command(label="Editar Valor", command=self.edit_selected_value)
+            context_menu.add_command(label="Adicionar aos Favoritos", command=self.add_to_favorites)
+            context_menu.add_separator()
+            context_menu.add_command(label="Ir para Endereço", command=self.goto_address)
+            
+            try:
+                context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                context_menu.grab_release()
+
+    def copy_selected_address(self, event=None):
+        """Copia o endereço selecionado para a área de transferência"""
         selection = self.results_tree.selection()
         if selection:
             item = self.results_tree.item(selection[0])
             address_str = item['values'][0]
+            
+            # Copia para área de transferência
+            self.root.clipboard_clear()
+            self.root.clipboard_append(address_str)
+            self.update_status(f"Endereço {address_str} copiado para área de transferência")
+            
+            # Feedback visual temporário
+            self.show_copy_feedback(address_str)
+        else:
+            messagebox.showwarning("Aviso", "Selecione um resultado primeiro")
+
+    def copy_selected_value(self, event=None):
+        """Copia o valor selecionado para a área de transferência"""
+        selection = self.results_tree.selection()
+        if selection:
+            item = self.results_tree.item(selection[0])
+            value_str = str(item['values'][1])
+            
+            self.root.clipboard_clear()
+            self.root.clipboard_append(value_str)
+            self.update_status(f"Valor {value_str} copiado para área de transferência")
+            self.show_copy_feedback(value_str)
+        else:
+            messagebox.showwarning("Aviso", "Selecione um resultado primeiro")
+
+    def copy_address_and_value(self, event=None):
+        """Copia endereço e valor selecionados"""
+        selection = self.results_tree.selection()
+        if selection:
+            item = self.results_tree.item(selection[0])
+            address_str = item['values'][0]
+            value_str = str(item['values'][1])
+            combined = f"{address_str}: {value_str}"
+            
+            self.root.clipboard_clear()
+            self.root.clipboard_append(combined)
+            self.update_status(f"Endereço e valor copiados: {combined}")
+            self.show_copy_feedback(combined)
+        else:
+            messagebox.showwarning("Aviso", "Selecione um resultado primeiro")
+
+    def show_copy_feedback(self, text):
+        """Mostra feedback visual temporário para cópia"""
+        # Cria uma pequena janela de feedback
+        feedback = tk.Toplevel(self.root)
+        feedback.title("Copiado!")
+        feedback.geometry("300x60")
+        feedback.resizable(False, False)
+        
+        # Centraliza na tela
+        feedback.transient(self.root)
+        feedback.grab_set()
+        
+        label = ttk.Label(feedback, text=f"Copiado: {text[:30]}{'...' if len(text) > 30 else ''}")
+        label.pack(expand=True)
+        
+        # Fecha automaticamente após 1.5 segundos
+        feedback.after(1500, feedback.destroy)
+
+    def edit_selected_value(self):
+        """Edita o valor selecionado"""
+        selection = self.results_tree.selection()
+        if selection:
+            item = self.results_tree.item(selection[0])
             current_value = item['values'][1]
             
             # Pré-preenche o campo de novo valor
@@ -780,6 +892,110 @@ class CheatEngineGUI:
             # Foca no campo de entrada e seleciona todo o texto
             self.new_value_entry.focus_set()
             self.new_value_entry.select_range(0, tk.END)
+
+    def add_to_favorites(self):
+        """Adiciona endereço aos favoritos"""
+        selection = self.results_tree.selection()
+        if selection:
+            item = self.results_tree.item(selection[0])
+            address_str = item['values'][0]
+            value_str = str(item['values'][1])
+            type_str = item['values'][2]
+            
+            # Cria uma descrição padrão
+            description = simpledialog.askstring(
+                "Adicionar aos Favoritos", 
+                f"Descrição para {address_str}:",
+                initialvalue=f"Valor {type_str}"
+            )
+            
+            if description:
+                # Aqui você pode implementar um sistema de favoritos
+                messagebox.showinfo("Favoritos", f"Endereço {address_str} adicionado aos favoritos como '{description}'")
+
+    def goto_address(self):
+        """Vai para um endereço específico"""
+        selection = self.results_tree.selection()
+        if selection:
+            item = self.results_tree.item(selection[0])
+            address_str = item['values'][0]
+            
+            # Abre uma janela para mostrar dados em torno do endereço
+            self.open_memory_viewer(address_str)
+
+    def open_memory_viewer(self, address_str):
+        """Abre visualizador de memória para o endereço"""
+        try:
+            address = int(address_str, 16)
+            
+            viewer_window = tk.Toplevel(self.root)
+            viewer_window.title(f"Visualizador de Memória - {address_str}")
+            viewer_window.geometry("600x400")
+            
+            # Frame para controles
+            control_frame = ttk.Frame(viewer_window)
+            control_frame.pack(fill=tk.X, padx=5, pady=5)
+            
+            ttk.Label(control_frame, text="Endereço:").pack(side=tk.LEFT)
+            address_var = tk.StringVar(value=address_str)
+            address_entry = ttk.Entry(control_frame, textvariable=address_var, width=15)
+            address_entry.pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(control_frame, text="Atualizar", 
+                      command=lambda: self.update_memory_view(address_var.get(), text_widget)).pack(side=tk.LEFT, padx=5)
+            
+            # Área de texto para mostrar dados
+            text_frame = ttk.Frame(viewer_window)
+            text_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            text_widget = tk.Text(text_frame, font=('Courier', 10))
+            scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+            text_widget.configure(yscrollcommand=scrollbar.set)
+            
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            # Carrega dados iniciais
+            self.update_memory_view(address_str, text_widget)
+            
+        except ValueError:
+            messagebox.showerror("Erro", "Endereço inválido")
+
+    def update_memory_view(self, address_str, text_widget):
+        """Atualiza a visualização de memória"""
+        try:
+            address = int(address_str, 16)
+            
+            # Lê 256 bytes a partir do endereço
+            data = self.memory_manager.read_memory(address, 256)
+            
+            text_widget.delete(1.0, tk.END)
+            
+            if data:
+                # Formato hexadecimal com ASCII
+                for i in range(0, len(data), 16):
+                    chunk = data[i:i+16]
+                    addr_str = f"{address + i:08X}: "
+                    hex_str = " ".join(f"{b:02X}" for b in chunk)
+                    hex_str = hex_str.ljust(48)  # Alinha para 16 bytes
+                    ascii_str = "".join(chr(b) if 32 <= b <= 126 else '.' for b in chunk)
+                    
+                    text_widget.insert(tk.END, f"{addr_str}{hex_str} |{ascii_str}|\n")
+            else:
+                text_widget.insert(tk.END, "Não foi possível ler dados do endereço")
+                
+        except Exception as e:
+            text_widget.delete(1.0, tk.END)
+            text_widget.insert(tk.END, f"Erro ao ler memória: {e}")
+
+    def select_all_results(self, event=None):
+        """Seleciona todos os resultados"""
+        for child in self.results_tree.get_children():
+            self.results_tree.selection_add(child)
+
+    def on_result_double_click(self, event):
+        """Callback para duplo clique em resultado"""
+        self.edit_selected_value()
     
     def write_selected_value(self):
         """Escreve novo valor no endereço selecionado"""
@@ -1211,6 +1427,19 @@ Desenvolvido com Python, Tkinter e ctypes
         """
         messagebox.showinfo("Sobre PyCheatEngine", about_text)
     
+    def on_enter_key(self, event):
+        """Callback para tecla Enter"""
+        if self.results_tree.focus_get() == self.results_tree:
+            self.edit_selected_value()
+        return "break"  # Impede propagação do evento
+
+    def on_delete_key(self, event):
+        """Callback para tecla Delete"""
+        if self.results_tree.focus_get() == self.results_tree:
+            # Aqui você pode implementar remoção de resultados se necessário
+            pass
+        return "break"
+
     def update_status(self, message):
         """Atualiza a barra de status"""
         self.status_label.config(text=message)
