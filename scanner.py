@@ -153,60 +153,92 @@ class MemoryScanner:
         """Compara valores baseado no tipo de scan"""
         try:
             if current_value is None:
+                print(f"[DEBUG] Valor atual é None")
                 return False
 
+            print(f"[DEBUG] Comparando: atual={current_value}, target={target_value}, anterior={previous_value}, tipo={scan_type}")
+
             # Validação adicional para evitar overflow em comparações
-            if isinstance(current_value, (int, float)) and isinstance(target_value, (int, float)):
+            if isinstance(current_value, (int, float)) and target_value is not None and isinstance(target_value, (int, float)):
                 # Verifica se os valores estão dentro de limites seguros para comparação
                 if abs(current_value) > 1e15 or abs(target_value) > 1e15:
+                    print(f"[WARNING] Valores muito grandes para comparação segura")
                     return False
 
             if scan_type == ScanType.EXACT:
-                return current_value == target_value
+                result = current_value == target_value
+                print(f"[DEBUG] EXACT: {current_value} == {target_value} = {result}")
+                return result
 
             elif scan_type == ScanType.INCREASED:
                 if previous_value is None:
+                    print(f"[DEBUG] INCREASED: valor anterior é None")
                     return False
                 try:
                     if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
                         if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
                             return False
-                        return current_value > previous_value
+                        result = current_value > previous_value
+                        print(f"[DEBUG] INCREASED: {current_value} > {previous_value} = {result}")
+                        return result
                     return False
-                except (TypeError, OverflowError):
+                except (TypeError, OverflowError) as e:
+                    print(f"[ERROR] Erro em INCREASED: {e}")
                     return False
 
             elif scan_type == ScanType.DECREASED:
                 if previous_value is None:
+                    print(f"[DEBUG] DECREASED: valor anterior é None")
                     return False
                 try:
                     if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
                         if abs(current_value) > 1e15 or abs(previous_value) > 1e15:
                             return False
-                        return current_value < previous_value
+                        result = current_value < previous_value
+                        print(f"[DEBUG] DECREASED: {current_value} < {previous_value} = {result}")
+                        return result
                     return False
-                except (TypeError, OverflowError):
+                except (TypeError, OverflowError) as e:
+                    print(f"[ERROR] Erro em DECREASED: {e}")
                     return False
 
             elif scan_type == ScanType.CHANGED:
-                return previous_value is not None and current_value != previous_value
+                result = previous_value is not None and current_value != previous_value
+                print(f"[DEBUG] CHANGED: {current_value} != {previous_value} = {result}")
+                return result
 
             elif scan_type == ScanType.UNCHANGED:
-                return previous_value is not None and current_value == previous_value
+                result = previous_value is not None and current_value == previous_value
+                print(f"[DEBUG] UNCHANGED: {current_value} == {previous_value} = {result}")
+                return result
 
             elif scan_type == ScanType.GREATER_THAN:
-                return current_value > target_value
+                if target_value is None:
+                    print(f"[DEBUG] GREATER_THAN: target_value é None")
+                    return False
+                result = current_value > target_value
+                print(f"[DEBUG] GREATER_THAN: {current_value} > {target_value} = {result}")
+                return result
 
             elif scan_type == ScanType.LESS_THAN:
-                return current_value < target_value
+                if target_value is None:
+                    print(f"[DEBUG] LESS_THAN: target_value é None")
+                    return False
+                result = current_value < target_value
+                print(f"[DEBUG] LESS_THAN: {current_value} < {target_value} = {result}")
+                return result
 
             elif scan_type == ScanType.BETWEEN:
                 if isinstance(target_value, (list, tuple)) and len(target_value) == 2:
-                    return target_value[0] <= current_value <= target_value[1]
+                    result = target_value[0] <= current_value <= target_value[1]
+                    print(f"[DEBUG] BETWEEN: {target_value[0]} <= {current_value} <= {target_value[1]} = {result}")
+                    return result
 
+            print(f"[WARNING] Tipo de scan não implementado ou inválido: {scan_type}")
             return False
 
-        except (OverflowError, ValueError, TypeError):
+        except (OverflowError, ValueError, TypeError) as e:
+            print(f"[ERROR] Erro na comparação de valores: {e}")
             return False
 
     def first_scan(self, value: Any, data_type: DataType, 
@@ -255,11 +287,18 @@ class MemoryScanner:
         Returns:
             List[ScanResult]: Lista de resultados filtrados
         """
+        print(f"[DEBUG] Iniciando next_scan - Tipo: {scan_type}, Valor: {value}")
+        print(f"[DEBUG] Resultados anteriores: {len(self.scan_results)}")
+        
         if not self.scan_results:
-            raise RuntimeError("Nenhum scan anterior encontrado. Execute first_scan primeiro.")
+            error_msg = "Nenhum scan anterior encontrado. Execute first_scan primeiro."
+            print(f"[ERROR] {error_msg}")
+            raise RuntimeError(error_msg)
 
         if not self.memory_manager.is_attached():
-            raise RuntimeError("Não está anexado a nenhum processo")
+            error_msg = "Não está anexado a nenhum processo"
+            print(f"[ERROR] {error_msg}")
+            raise RuntimeError(error_msg)
 
         self.is_scanning = True
         self.scan_progress = 0
@@ -267,12 +306,15 @@ class MemoryScanner:
         try:
             new_results = []
             total_results = len(self.scan_results)
+            print(f"[DEBUG] Processando {total_results} resultados...")
 
             if total_results == 0:
+                print("[DEBUG] Nenhum resultado para processar")
                 return []
 
             for i, result in enumerate(self.scan_results):
                 if not self.is_scanning:
+                    print("[DEBUG] Scan cancelado pelo usuário")
                     break
 
                 # Atualiza progresso
@@ -282,30 +324,41 @@ class MemoryScanner:
                     if self.progress_callback:
                         try:
                             self.progress_callback(progress)
-                        except:
-                            pass
+                        except Exception as e:
+                            print(f"[WARNING] Erro no callback de progresso: {e}")
 
                 # Lê valor atual
                 current_value = self._read_value_at_address(result.address, result.data_type)
+                print(f"[DEBUG] Endereço 0x{result.address:X}: {result.value} -> {current_value}")
 
                 if current_value is not None:
-                    # Compara valores - para scans que não precisam de valor, passa None
-                    if self._compare_values(current_value, value, scan_type, result.value):
+                    # Compara valores
+                    match = self._compare_values(current_value, value, scan_type, result.value)
+                    print(f"[DEBUG] Comparação {scan_type}: {current_value} vs {value} (anterior: {result.value}) = {match}")
+                    
+                    if match:
                         result.update_value(current_value)
                         new_results.append(result)
+                else:
+                    print(f"[WARNING] Não foi possível ler endereço 0x{result.address:X}")
 
             self.scan_results = new_results
             self.scan_progress = 100
+            
+            print(f"[DEBUG] Next scan completado: {len(new_results)} resultados restantes")
+            
             if self.progress_callback:
                 try:
                     self.progress_callback(100)
-                except:
-                    pass
+                except Exception as e:
+                    print(f"[WARNING] Erro no callback final: {e}")
 
             return self.scan_results.copy()
 
         except Exception as e:
-            print(f"Erro durante next scan: {e}")
+            print(f"[ERROR] Erro durante next scan: {e}")
+            import traceback
+            traceback.print_exc()
             return []
         finally:
             self.is_scanning = False

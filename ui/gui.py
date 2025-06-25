@@ -443,34 +443,59 @@ class CheatEngineGUI:
     
     def start_next_scan(self):
         """Inicia o próximo scan"""
+        print(f"[GUI] start_next_scan chamado")
+        
         if not self.scanner.scan_results:
-            messagebox.showerror("Erro", "Nenhum resultado de scan anterior. Execute o primeiro scan antes.")
+            error_msg = "Nenhum resultado de scan anterior. Execute o primeiro scan antes."
+            print(f"[GUI ERROR] {error_msg}")
+            messagebox.showerror("Erro", error_msg)
             return
             
+        print(f"[GUI] {len(self.scanner.scan_results)} resultados anteriores encontrados")
+        
         value = self.scan_value_var.get()
-        scan_type = ScanType(self.scan_type_var.get())
+        scan_type_str = self.scan_type_var.get()
+        print(f"[GUI] Valor digitado: '{value}', Tipo: '{scan_type_str}'")
+        
+        try:
+            scan_type = ScanType(scan_type_str)
+        except ValueError as e:
+            error_msg = f"Tipo de scan inválido: {scan_type_str}"
+            print(f"[GUI ERROR] {error_msg}")
+            messagebox.showerror("Erro", error_msg)
+            return
         
         # Para scans que não precisam de valor
         if scan_type in [ScanType.INCREASED, ScanType.DECREASED, ScanType.CHANGED, ScanType.UNCHANGED]:
             value = None
+            print(f"[GUI] Scan {scan_type} não precisa de valor, usando None")
         else:
             if not value:
-                messagebox.showerror("Erro", "Digite um valor para comparação")
+                error_msg = "Digite um valor para comparação"
+                print(f"[GUI ERROR] {error_msg}")
+                messagebox.showerror("Erro", error_msg)
                 return
             
             try:
                 # Obtém tipo de dado dos resultados existentes
                 if self.scanner.scan_results:
                     data_type = self.scanner.scan_results[0].data_type
+                    print(f"[GUI] Tipo de dado dos resultados: {data_type}")
                 else:
                     data_type = DataType(self.data_type_var.get())
+                    print(f"[GUI] Tipo de dado da interface: {data_type}")
                     
                 if data_type in [DataType.INT32, DataType.INT64]:
                     value = int(value)
+                    print(f"[GUI] Valor convertido para int: {value}")
                 elif data_type in [DataType.FLOAT, DataType.DOUBLE]:
                     value = float(value)
+                    print(f"[GUI] Valor convertido para float: {value}")
+                    
             except ValueError as e:
-                messagebox.showerror("Erro", f"Valor inválido: {e}")
+                error_msg = f"Valor inválido: {e}"
+                print(f"[GUI ERROR] {error_msg}")
+                messagebox.showerror("Erro", error_msg)
                 return
         
         # Desabilita botões
@@ -479,6 +504,7 @@ class CheatEngineGUI:
         
         # Atualiza status
         self.update_status("Executando próximo scan...")
+        print(f"[GUI] Iniciando thread para próximo scan...")
         
         # Inicia scan em thread separada
         self.scan_thread = threading.Thread(
@@ -487,41 +513,63 @@ class CheatEngineGUI:
         )
         self.scan_thread.daemon = True
         self.scan_thread.start()
+        print(f"[GUI] Thread iniciada")
     
     def _perform_next_scan(self, value, scan_type):
         """Executa o próximo scan em thread separada"""
         try:
+            print(f"[GUI] Iniciando _perform_next_scan com valor={value}, tipo={scan_type}")
+            
             # Verifica se o scanner ainda está válido
             if not hasattr(self, 'scanner') or not self.scanner:
                 raise RuntimeError("Scanner não inicializado")
+            
+            # Verifica se há resultados anteriores
+            if not self.scanner.scan_results:
+                raise RuntimeError("Nenhum resultado de scan anterior")
                 
+            print(f"[GUI] Scanner válido, {len(self.scanner.scan_results)} resultados anteriores")
+            
             results = self.scanner.next_scan(value, scan_type)
+            
+            print(f"[GUI] Next scan retornou {len(results)} resultados")
             
             # Verifica se a UI ainda existe antes de atualizar
             if hasattr(self, 'root') and self.root:
                 self.root.after(0, self._scan_completed, results, False)
             
         except Exception as e:
+            print(f"[GUI ERROR] Erro em _perform_next_scan: {e}")
+            import traceback
+            traceback.print_exc()
+            
             if hasattr(self, 'root') and self.root:
-                self.root.after(0, self._scan_error, str(e))
+                self.root.after(0, self._scan_error, f"Erro no próximo scan: {str(e)}")
     
     def _scan_completed(self, results, is_first_scan):
         """Callback para scan completado"""
+        print(f"[GUI] _scan_completed chamado com {len(results)} resultados, is_first_scan={is_first_scan}")
+        
         self.first_scan_btn.config(state=tk.NORMAL)
         self.cancel_scan_btn.config(state=tk.DISABLED)
         
         # Habilita próximo scan se houver resultados
         if len(results) > 0:
             self.next_scan_btn.config(state=tk.NORMAL)
+            print(f"[GUI] Botão próximo scan habilitado")
         else:
             self.next_scan_btn.config(state=tk.DISABLED)
+            print(f"[GUI] Botão próximo scan desabilitado (sem resultados)")
         
         self.update_results_display()
         
         if is_first_scan:
-            self.update_status(f"Primeiro scan completado: {len(results)} resultados encontrados")
+            status_msg = f"Primeiro scan completado: {len(results)} resultados encontrados"
         else:
-            self.update_status(f"Próximo scan completado: {len(results)} resultados restantes")
+            status_msg = f"Próximo scan completado: {len(results)} resultados restantes"
+            
+        print(f"[GUI] {status_msg}")
+        self.update_status(status_msg)
     
     def _scan_error(self, error_msg):
         """Callback para erro no scan"""

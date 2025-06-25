@@ -328,6 +328,10 @@ Exemplos de uso:
 def main():
     """Função principal do programa"""
     try:
+        # Configura logging para debug
+        import logging
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+        
         # Analisa argumentos
         args = parse_arguments()
 

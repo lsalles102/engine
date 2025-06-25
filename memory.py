@@ -361,6 +361,10 @@ class MemoryManager:
         
         return regions
     
+    def detach_process(self):
+        """Desanexa do processo atual"""
+        self.close()
+    
     def close(self):
         """Fecha todas as conexões e libera recursos"""
         try:
