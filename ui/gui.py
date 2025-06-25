@@ -443,6 +443,10 @@ class CheatEngineGUI:
     
     def start_next_scan(self):
         """Inicia o próximo scan"""
+        if not self.scanner.scan_results:
+            messagebox.showerror("Erro", "Nenhum resultado de scan anterior. Execute o primeiro scan antes.")
+            return
+            
         value = self.scan_value_var.get()
         scan_type = ScanType(self.scan_type_var.get())
         
@@ -455,7 +459,12 @@ class CheatEngineGUI:
                 return
             
             try:
-                data_type = DataType(self.data_type_var.get())
+                # Obtém tipo de dado dos resultados existentes
+                if self.scanner.scan_results:
+                    data_type = self.scanner.scan_results[0].data_type
+                else:
+                    data_type = DataType(self.data_type_var.get())
+                    
                 if data_type in [DataType.INT32, DataType.INT64]:
                     value = int(value)
                 elif data_type in [DataType.FLOAT, DataType.DOUBLE]:
@@ -468,11 +477,15 @@ class CheatEngineGUI:
         self.next_scan_btn.config(state=tk.DISABLED)
         self.cancel_scan_btn.config(state=tk.NORMAL)
         
+        # Atualiza status
+        self.update_status("Executando próximo scan...")
+        
         # Inicia scan em thread separada
         self.scan_thread = threading.Thread(
             target=self._perform_next_scan,
             args=(value, scan_type)
         )
+        self.scan_thread.daemon = True
         self.scan_thread.start()
     
     def _perform_next_scan(self, value, scan_type):
@@ -491,11 +504,18 @@ class CheatEngineGUI:
         self.first_scan_btn.config(state=tk.NORMAL)
         self.cancel_scan_btn.config(state=tk.DISABLED)
         
-        if results:
+        # Habilita próximo scan se houver resultados
+        if len(results) > 0:
             self.next_scan_btn.config(state=tk.NORMAL)
+        else:
+            self.next_scan_btn.config(state=tk.DISABLED)
         
         self.update_results_display()
-        self.update_status(f"Scan completado: {len(results)} resultados encontrados")
+        
+        if is_first_scan:
+            self.update_status(f"Primeiro scan completado: {len(results)} resultados encontrados")
+        else:
+            self.update_status(f"Próximo scan completado: {len(results)} resultados restantes")
     
     def _scan_error(self, error_msg):
         """Callback para erro no scan"""

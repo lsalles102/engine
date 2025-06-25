@@ -260,32 +260,45 @@ class MemoryScanner:
             new_results = []
             total_results = len(self.scan_results)
 
+            if total_results == 0:
+                return []
+
             for i, result in enumerate(self.scan_results):
                 if not self.is_scanning:
                     break
 
                 # Atualiza progresso
-                progress = int((i / total_results) * 100)
+                progress = int((i / total_results) * 100) if total_results > 0 else 100
                 if progress != self.scan_progress:
                     self.scan_progress = progress
                     if self.progress_callback:
-                        self.progress_callback(progress)
+                        try:
+                            self.progress_callback(progress)
+                        except:
+                            pass
 
                 # Lê valor atual
                 current_value = self._read_value_at_address(result.address, result.data_type)
 
-                # Compara valores
-                if self._compare_values(current_value, value, scan_type, result.value):
-                    result.update_value(current_value)
-                    new_results.append(result)
+                if current_value is not None:
+                    # Compara valores - para scans que não precisam de valor, passa None
+                    if self._compare_values(current_value, value, scan_type, result.value):
+                        result.update_value(current_value)
+                        new_results.append(result)
 
             self.scan_results = new_results
             self.scan_progress = 100
             if self.progress_callback:
-                self.progress_callback(100)
+                try:
+                    self.progress_callback(100)
+                except:
+                    pass
 
             return self.scan_results.copy()
 
+        except Exception as e:
+            print(f"Erro durante next scan: {e}")
+            return []
         finally:
             self.is_scanning = False
 
