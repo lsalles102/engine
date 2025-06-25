@@ -150,7 +150,10 @@ class MemoryScanner:
 
     def _compare_values(self, current_value: Any, target_value: Any, 
                        scan_type: ScanType, previous_value: Any = None) -> bool:
-        """Compara valores baseado no tipo de scan"""
+        """
+        Compara valores baseado no tipo de scan
+        Esta função é usada apenas no first_scan para comparações simples
+        """
         try:
             # Validação básica
             if current_value is None:
@@ -162,55 +165,12 @@ class MemoryScanner:
                     return False
                 if target_value is not None and isinstance(target_value, (int, float)) and abs(target_value) > 1e15:
                     return False
-                if previous_value is not None and isinstance(previous_value, (int, float)) and abs(previous_value) > 1e15:
-                    return False
 
-            # Comparações por tipo de scan
+            # Para first_scan, normalmente só usamos EXACT
             if scan_type == ScanType.EXACT:
                 if target_value is None:
                     return False
                 return current_value == target_value
-
-            elif scan_type == ScanType.INCREASED:
-                if previous_value is None:
-                    return False
-                try:
-                    if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
-                        return current_value > previous_value
-                    # Para strings, compara lexicograficamente
-                    elif isinstance(current_value, str) and isinstance(previous_value, str):
-                        return current_value > previous_value
-                    return False
-                except (TypeError, OverflowError):
-                    return False
-
-            elif scan_type == ScanType.DECREASED:
-                if previous_value is None:
-                    return False
-                try:
-                    if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
-                        return current_value < previous_value
-                    elif isinstance(current_value, str) and isinstance(previous_value, str):
-                        return current_value < previous_value
-                    return False
-                except (TypeError, OverflowError):
-                    return False
-
-            elif scan_type == ScanType.CHANGED:
-                if previous_value is None:
-                    return False
-                try:
-                    return current_value != previous_value
-                except:
-                    return False
-
-            elif scan_type == ScanType.UNCHANGED:
-                if previous_value is None:
-                    return False
-                try:
-                    return current_value == previous_value
-                except:
-                    return False
 
             elif scan_type == ScanType.GREATER_THAN:
                 if target_value is None:
@@ -280,6 +240,7 @@ class MemoryScanner:
     def next_scan(self, value: Any, scan_type: ScanType) -> List[ScanResult]:
         """
         Realiza scan subsequente baseado nos resultados anteriores
+        Funciona como o Cheat Engine tradicional - compara valor atual com o valor fornecido
 
         Args:
             value: Valor a procurar (pode ser None para alguns tipos de scan)
@@ -346,23 +307,57 @@ class MemoryScanner:
                     print(f"[NEXT_SCAN WARNING] Resultado inválido no índice {i}")
                     continue
 
-                # Lê valor atual
+                # Lê valor atual da memória
                 try:
                     current_value = self._read_value_at_address(result.address, result.data_type)
                     
                     if current_value is not None:
-                        # Log detalhado apenas para os primeiros 5 resultados para não sobrecarregar
+                        # Log detalhado apenas para os primeiros 5 resultados
                         if i < 5:
-                            print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: {result.value} -> {current_value}")
+                            print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={result.value}, atual={current_value}, procurado={value}")
 
-                        # Compara valores
+                        # Compara valores usando lógica correta do Cheat Engine
                         try:
-                            match = self._compare_values(current_value, value, scan_type, result.value)
+                            match = False
                             
-                            if i < 5:  # Log detalhado apenas para os primeiros
-                                print(f"[NEXT_SCAN] Comparação {scan_type.value}: {current_value} vs {value} (anterior: {result.value}) = {match}")
+                            if scan_type == ScanType.EXACT:
+                                # Compara valor atual com o valor digitado pelo usuário
+                                match = (current_value == value)
+                                
+                            elif scan_type == ScanType.INCREASED:
+                                # Verifica se valor atual é maior que o valor anterior (stored)
+                                match = (current_value > result.value)
+                                
+                            elif scan_type == ScanType.DECREASED:
+                                # Verifica se valor atual é menor que o valor anterior (stored)
+                                match = (current_value < result.value)
+                                
+                            elif scan_type == ScanType.CHANGED:
+                                # Verifica se valor atual é diferente do valor anterior
+                                match = (current_value != result.value)
+                                
+                            elif scan_type == ScanType.UNCHANGED:
+                                # Verifica se valor atual é igual ao valor anterior
+                                match = (current_value == result.value)
+                                
+                            elif scan_type == ScanType.GREATER_THAN:
+                                # Compara valor atual com o valor digitado
+                                match = (current_value > value)
+                                
+                            elif scan_type == ScanType.LESS_THAN:
+                                # Compara valor atual com o valor digitado
+                                match = (current_value < value)
+                                
+                            elif scan_type == ScanType.BETWEEN:
+                                # Verifica se valor atual está entre os valores fornecidos
+                                if isinstance(value, (list, tuple)) and len(value) == 2:
+                                    match = (value[0] <= current_value <= value[1])
+                            
+                            if i < 5:  # Log detalhado para debug
+                                print(f"[NEXT_SCAN] Comparação {scan_type.value}: resultado={match}")
                             
                             if match:
+                                # Atualiza o valor armazenado com o valor atual
                                 result.update_value(current_value)
                                 new_results.append(result)
                                 matched_count += 1
