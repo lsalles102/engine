@@ -4,25 +4,6 @@ modules = ["python-3.11", "bash"]
 channel = "stable-24_05"
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "PyCheatEngine"
-
-[[workflows.workflow]]
-name = "PyCheatEngine"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python web_demo_simples.py"
-waitForPort = 5000
 
 [[ports]]
 localPort = 5000

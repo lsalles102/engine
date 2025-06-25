@@ -233,6 +233,7 @@ def run_gui():
     except Exception as e:
         print(f"\nErro na interface gráfica: {e}")
         print("Tente usar a interface de linha de comando (opção 2)")
+        print("Ou execute: python main.py --cli")
 
 def run_cli():
     """Executa a interface de linha de comando"""

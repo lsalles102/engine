@@ -424,6 +424,16 @@ class MemoryScanner:
         except Exception as e:
             print(f"Erro ao importar resultados: {e}")
             return False
+    
+    def first_scan(self, value: Any, data_type: DataType, scan_type: ScanType = ScanType.EXACT) -> List[ScanResult]:
+        """
+        Realiza o primeiro scan na memória
+        
+        Args:
+            value: Valor para buscar
+            data_type: Tipo de dados
+            scan_type: Tipo de scan
+            
         Returns:
             List[ScanResult]: Lista de resultados encontrados
         """
@@ -729,5 +739,5 @@ class MemoryScanner:
             'count': len(self.scan_results),
             'is_scanning': self.is_scanning,
             'progress': self.scan_progress,
-            'attached_process': self.memory_manager.process_name if self.memory_manager.is_attached() else None
+            'attached_process': self.memory_manager.process_id if self.memory_manager.is_attached() else None
         }
