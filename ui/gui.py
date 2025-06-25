@@ -2120,29 +2120,6 @@ class CheatEngineGUI:
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao carregar sessão: {e}")
 
-    def load_session(self):
-        """Carrega uma sessão salva"""
-        try:
-            filename = filedialog.askopenfilename(
-                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-            )
-
-            if filename:
-                with open(filename, 'r', encoding='utf-8') as f:
-                    session_data = json.load(f)
-
-                # Carrega ponteiros
-                self.pointer_resolver.pointer_chains.clear()
-                for chain_data in session_data.get('pointer_chains', []):
-                    chain = PointerChain.from_dict(chain_data)
-                    self.pointer_resolver.pointer_chains.append(chain)
-
-                self.update_pointer_display()
-                messagebox.showinfo("Sucesso", "Sessão carregada com sucesso")
-
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao carregar sessão: {e}")
-
     def open_hex_calculator(self):
         """Abre calculadora hexadecimal"""
         calc_window = tk.Toplevel(self.root)
