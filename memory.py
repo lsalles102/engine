@@ -154,6 +154,154 @@ class MemoryManager:
             data: Dados para escrever
             
         Returns:
+            bool: True se escreveu com sucesso, False caso contrário
+        """
+        if not self.is_attached():
+            raise RuntimeError("Não está anexado a nenhum processo")
+        
+        try:
+            if IS_WINDOWS:
+                bytes_written = ctypes.c_size_t()
+                
+                success = kernel32.WriteProcessMemory(
+                    self.process_handle,
+                    ctypes.c_void_p(address),
+                    data,
+                    len(data),
+                    ctypes.byref(bytes_written)
+                )
+                
+                return success and bytes_written.value == len(data)
+            
+            elif IS_LINUX:
+                self.mem_file.seek(address)
+                self.mem_file.write(data)
+                self.mem_file.flush()
+                return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Erro ao escrever memória no endereço 0x{address:X}: {e}")
+            return False
+    
+    def read_int(self, address: int) -> Optional[int]:
+        """Lê um inteiro de 32 bits"""
+        data = self.read_memory(address, 4)
+        if data:
+            return struct.unpack('<i', data)[0]
+        return None
+    
+    def read_long(self, address: int) -> Optional[int]:
+        """Lê um inteiro de 64 bits"""
+        data = self.read_memory(address, 8)
+        if data:
+            return struct.unpack('<q', data)[0]
+        return None
+    
+    def read_float(self, address: int) -> Optional[float]:
+        """Lê um float de 32 bits"""
+        data = self.read_memory(address, 4)
+        if data:
+            return struct.unpack('<f', data)[0]
+        return None
+    
+    def read_double(self, address: int) -> Optional[float]:
+        """Lê um double de 64 bits"""
+        data = self.read_memory(address, 8)
+        if data:
+            return struct.unpack('<d', data)[0]
+        return None
+    
+    def read_string(self, address: int, max_length: int = 256) -> Optional[str]:
+        """Lê uma string terminada em null"""
+        data = self.read_memory(address, max_length)
+        if data:
+            try:
+                # Encontra o terminador null
+                null_pos = data.find(b'\x00')
+                if null_pos >= 0:
+                    data = data[:null_pos]
+                return data.decode('utf-8', errors='ignore')
+            except:
+                return None
+        return None
+    
+    def write_int(self, address: int, value: int) -> bool:
+        """Escreve um inteiro de 32 bits"""
+        data = struct.pack('<i', value)
+        return self.write_memory(address, data)
+    
+    def write_long(self, address: int, value: int) -> bool:
+        """Escreve um inteiro de 64 bits"""
+        data = struct.pack('<q', value)
+        return self.write_memory(address, data)
+    
+    def write_float(self, address: int, value: float) -> bool:
+        """Escreve um float de 32 bits"""
+        data = struct.pack('<f', value)
+        return self.write_memory(address, data)
+    
+    def write_double(self, address: int, value: float) -> bool:
+        """Escreve um double de 64 bits"""
+        data = struct.pack('<d', value)
+        return self.write_memory(address, data)
+    
+    def write_string(self, address: int, value: str) -> bool:
+        """Escreve uma string"""
+        data = value.encode('utf-8') + b'\x00'
+        return self.write_memory(address, data)
+    
+    def get_process_modules(self) -> List[Dict]:
+        """Obtém lista de módulos do processo"""
+        if not self.is_attached():
+            return []
+        
+        modules = []
+        try:
+            process = psutil.Process(self.process_id)
+            for module in process.memory_maps():
+                modules.append({
+                    'name': os.path.basename(module.path),
+                    'path': module.path,
+                    'base_address': int(module.addr.split('-')[0], 16),
+                    'size': module.rss if hasattr(module, 'rss') else 0
+                })
+        except Exception as e:
+            print(f"Erro ao obter módulos: {e}")
+        
+        return modules
+    
+    def get_memory_regions(self) -> List[Dict]:
+        """Obtém regiões de memória do processo"""
+        if not self.is_attached():
+            return []
+        
+        regions = []
+        try:
+            process = psutil.Process(self.process_id)
+            for region in process.memory_maps():
+                addr_range = region.addr.split('-')
+                start_addr = int(addr_range[0], 16)
+                end_addr = int(addr_range[1], 16)
+                
+                regions.append({
+                    'start_address': start_addr,
+                    'end_address': end_addr,
+                    'size': end_addr - start_addr,
+                    'path': region.path,
+                    'permissions': getattr(region, 'perms', 'unknown')
+                })
+        except Exception as e:
+            print(f"Erro ao obter regiões de memória: {e}")
+        
+        return regions
+        
+        Args:
+            address: Endereço de memória
+            data: Dados para escrever
+            
+        Returns:
             bool: True se escreveu com sucesso
         """
         if not self.is_attached():

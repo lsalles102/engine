@@ -159,6 +159,132 @@ class MemoryScanner:
         self.scan_progress = 0
         
         try:
+            step_size = self._get_data_size(data_type)
+            total_addresses = (self.end_address - self.start_address) // step_size
+            checked_addresses = 0
+            
+            current_address = self.start_address
+            while current_address < self.end_address and self.is_scanning:
+                # Atualiza progresso
+                progress = int((checked_addresses / total_addresses) * 100)
+                if progress != self.scan_progress:
+                    self.scan_progress = progress
+                    if self.progress_callback:
+                        self.progress_callback(progress)
+                
+                # Lê valor no endereço atual
+                current_value = self._read_value_at_address(current_address, data_type)
+                
+                # Compara valor
+                if self._compare_values(current_value, value, scan_type):
+                    result = ScanResult(current_address, current_value, data_type)
+                    self.scan_results.append(result)
+                
+                current_address += step_size
+                checked_addresses += 1
+                
+                # Limite de resultados para evitar sobrecarga
+                if len(self.scan_results) > 10000:
+                    break
+            
+            self.is_scanning = False
+            self.scan_progress = 100
+            if self.progress_callback:
+                self.progress_callback(100)
+            
+            return self.scan_results
+            
+        except Exception as e:
+            self.is_scanning = False
+            print(f"Erro durante first_scan: {e}")
+            return []
+    
+    def next_scan(self, value: Any, scan_type: ScanType) -> List[ScanResult]:
+        """
+        Realiza scan subsequente nos resultados existentes
+        
+        Args:
+            value: Valor a procurar
+            scan_type: Tipo de comparação
+            
+        Returns:
+            List[ScanResult]: Lista de resultados filtrados
+        """
+        if not self.scan_results:
+            raise RuntimeError("Nenhum resultado de scan anterior")
+        
+        new_results = []
+        self.is_scanning = True
+        self.scan_progress = 0
+        
+        try:
+            total_results = len(self.scan_results)
+            
+            for i, result in enumerate(self.scan_results):
+                if not self.is_scanning:
+                    break
+                
+                # Atualiza progresso
+                progress = int((i / total_results) * 100)
+                if progress != self.scan_progress:
+                    self.scan_progress = progress
+                    if self.progress_callback:
+                        self.progress_callback(progress)
+                
+                # Lê valor atual
+                current_value = self._read_value_at_address(result.address, result.data_type)
+                
+                # Compara valor
+                if self._compare_values(current_value, value, scan_type, result.value):
+                    result.update_value(current_value)
+                    new_results.append(result)
+            
+            self.scan_results = new_results
+            self.is_scanning = False
+            self.scan_progress = 100
+            if self.progress_callback:
+                self.progress_callback(100)
+            
+            return self.scan_results
+            
+        except Exception as e:
+            self.is_scanning = False
+            print(f"Erro durante next_scan: {e}")
+            return []
+    
+    def update_results(self):
+        """Atualiza valores de todos os resultados"""
+        for result in self.scan_results:
+            current_value = self._read_value_at_address(result.address, result.data_type)
+            if current_value is not None:
+                result.update_value(current_value)
+    
+    def cancel_scan(self):
+        """Cancela o scan atual"""
+        self.is_scanning = False
+    
+    def clear_results(self):
+        """Limpa todos os resultados"""
+        self.scan_results.clear()
+    
+    def get_scan_progress(self) -> int:
+        """Retorna o progresso atual do scan (0-100)"""
+        return self.scan_progress
+    
+    def is_scan_running(self) -> bool:
+        """Verifica se um scan está em execução"""
+        return self.is_scanning
+        Returns:
+            List[ScanResult]: Lista de resultados encontrados
+        """
+        if not self.memory_manager.is_attached():
+            raise RuntimeError("Não está anexado a nenhum processo")
+        
+        self.scan_results.clear()
+        self.is_scanning = True
+        self.scan_progress = 0
+        
+        try:
             data_size = self._get_data_size(data_type)
             chunk_size = 4096  # Lê em chunks de 4KB
             
