@@ -202,6 +202,81 @@ class MemoryScanner:
             print(f"[COMPARE ERROR] Erro na comparação: {e}")
             return False
 
+    def _compare_values_for_next_scan(self, previous_value: Any, current_value: Any, 
+                                    target_value: Any, scan_type: ScanType) -> bool:
+        """
+        Compara valores para next_scan baseado no tipo de scan
+        """
+        try:
+            # Validação básica
+            if current_value is None or previous_value is None:
+                return False
+
+            # Validação de overflow para valores numéricos
+            if isinstance(current_value, (int, float)) and abs(current_value) > 1e15:
+                return False
+            if isinstance(previous_value, (int, float)) and abs(previous_value) > 1e15:
+                return False
+
+            if scan_type == ScanType.EXACT:
+                if target_value is None:
+                    return False
+                return current_value == target_value
+
+            elif scan_type == ScanType.INCREASED:
+                try:
+                    return current_value > previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.DECREASED:
+                try:
+                    return current_value < previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.CHANGED:
+                try:
+                    return current_value != previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.UNCHANGED:
+                try:
+                    return current_value == previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.GREATER_THAN:
+                if target_value is None:
+                    return False
+                try:
+                    return current_value > target_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.LESS_THAN:
+                if target_value is None:
+                    return False
+                try:
+                    return current_value < target_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.BETWEEN:
+                if not isinstance(target_value, (list, tuple)) or len(target_value) != 2:
+                    return False
+                try:
+                    return target_value[0] <= current_value <= target_value[1]
+                except (TypeError, OverflowError):
+                    return False
+
+            return False
+
+        except Exception as e:
+            print(f"[COMPARE ERROR] Erro na comparação next_scan: {e}")
+            return False
+
     def first_scan(self, value: Any, data_type: DataType, 
                    scan_type: ScanType = ScanType.EXACT) -> List[ScanResult]:
         """
