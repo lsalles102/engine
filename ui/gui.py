@@ -653,7 +653,7 @@ class CheatEngineGUI:
                         self.root.after(0, self.update_status, suggestion)
 
             # Executa o next scan
-            results = self.scanner.next_scan(value, scan_type)```python
+            results = self.scanner.next_scan(value, scan_type)
             print(f"[GUI] Next scan retornou {len(results)} resultados")
 
             # Verifica se a UI ainda existe antes de atualizar
@@ -1306,7 +1306,6 @@ class CheatEngineGUI:
                                 pointer_tree.insert('', 'end', values=(
                                     f"0x{addr:08X}",
                                     f"+0x{offset:X}" if offset >= 0 else f"-0x{abs(offset):X}",
-```python
                                     f"0x{target_address:08X}",
                                     confidence,
                                     pointer_type

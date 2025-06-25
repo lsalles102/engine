@@ -15,6 +15,15 @@ mode = "sequential"
 task = "shell.exec"
 args = "python main.py"
 
+[[workflows.workflow]]
+name = "Test GUI"
+author = 44252882
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py --gui"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
