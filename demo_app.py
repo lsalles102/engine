@@ -128,10 +128,10 @@ class PyCheatEngineDemo:
         # Resultados de scan
         self.scan_results = []
         
-        self.setup_ui()
-        
         # Timer para atualização automática
         self.auto_update_enabled = tk.BooleanVar(value=True)
+        
+        self.setup_ui()
         self.start_auto_update()
     
     def setup_ui(self):

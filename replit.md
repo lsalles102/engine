@@ -125,7 +125,24 @@ PyCheatEngine/
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+- ✓ Implementado PyCheatEngine completo com arquitetura modular
+- ✓ Criada demonstração funcional com interface gráfica Tkinter
+- ✓ Adicionado suporte multiplataforma (Windows/Linux)
+- ✓ Configurado PyInstaller para compilação de executáveis
+- ✓ Documentação completa de compilação criada
+- → Em progresso: compilação de executável .exe
+
+## Deployment Strategy
+
+### Compilação para Executável
+- **PyInstaller**: Ferramenta principal para criar .exe
+- **auto-py-to-exe**: Interface gráfica alternativa
+- **Configurações**: --onefile --windowed para GUI, --console para CLI
+- **Distribuição**: Executáveis independentes, não requerem Python instalado
+
 ## Changelog
 
-Changelog:
-- June 25, 2025. Initial setup
+- June 25, 2025: Implementação completa do PyCheatEngine
+- June 25, 2025: Adicionada funcionalidade de compilação para executável

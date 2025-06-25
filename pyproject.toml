@@ -4,5 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "auto-py-to-exe>=2.46.0",
     "psutil>=7.0.0",
+    "pyinstaller>=6.14.1",
 ]
