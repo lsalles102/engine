@@ -253,6 +253,27 @@ def run_cli():
     except Exception as e:
         print(f"\nErro na interface CLI: {e}")
 
+def run_web_demo():
+    """Executa o demo web interativo"""
+    try:
+        print("\n🌐 Iniciando Demo Web Interativo...")
+        print("Este modo funciona perfeitamente no Replit e outros ambientes web!")
+        print("\nRecursos disponíveis:")
+        print("• Interface moderna e responsiva")
+        print("• Demonstrações interativas de todas as funcionalidades")
+        print("• Log em tempo real das operações")
+        print("• Compatível com qualquer navegador")
+        print("\nAguarde enquanto o servidor web é iniciado...")
+        
+        # Executa o web demo completo
+        os.system("python web_demo_completo.py")
+        
+    except KeyboardInterrupt:
+        print("\n\nDemo web interrompido pelo usuário.")
+    except Exception as e:
+        print(f"\nErro no demo web: {e}")
+        print("Tente executar diretamente: python web_demo_completo.py")
+
 def check_dependencies():
     """Verifica se as dependências estão instaladas"""
     required_modules = ['psutil', 'tkinter']
