@@ -15,6 +15,7 @@ import os
 import ctypes
 import platform
 import argparse
+import time
 from typing import Optional
 
 def check_admin_privileges() -> bool:
@@ -595,6 +596,308 @@ def handle_process_details():
 
     except Exception as e:
         print(f"❌ Erro ao mostrar detalhes: {e}")
+
+def run_gui():
+    """Executa a interface gráfica"""
+    try:
+        print("Inicializando interface gráfica...")
+        print("Aguarde enquanto a janela é carregada...")
+        
+        from ui.gui import PyCheatEngineGUI
+        app = PyCheatEngineGUI()
+        app.run()
+        
+    except ImportError as e:
+        print(f"❌ Erro ao importar GUI: {e}")
+        print("Algumas dependências podem estar faltando.")
+    except Exception as e:
+        print(f"❌ Erro na GUI: {e}")
+        import traceback
+        traceback.print_exc()
+
+def run_cli():
+    """Executa a interface de linha de comando"""
+    try:
+        from ui.cli import PyCheatEngineCLI
+        cli = PyCheatEngineCLI(memory_manager)
+        cli.run()
+        
+    except ImportError as e:
+        print(f"❌ Erro ao importar CLI: {e}")
+    except Exception as e:
+        print(f"❌ Erro na CLI: {e}")
+        import traceback
+        traceback.print_exc()
+
+def run_web_demo():
+    """Executa o demo web interativo"""
+    try:
+        print("🌐 Iniciando demo web...")
+        print("O demo será executado em http://0.0.0.0:5000")
+        
+        from web_demo import app
+        app.run(host='0.0.0.0', port=5000, debug=True)
+        
+    except ImportError as e:
+        print(f"❌ Erro ao importar web demo: {e}")
+    except Exception as e:
+        print(f"❌ Erro no web demo: {e}")
+        import traceback
+        traceback.print_exc()
+
+def run_stealth_mode():
+    """Executa o modo stealth com funcionalidades anti-detecção"""
+    try:
+        print("🥷 MODO STEALTH PYCHEATENGINE")
+        print("=" * 50)
+        print("Funcionalidades anti-detecção e evasão ativadas")
+        
+        from stealth import create_stealth_memory_manager, demo_stealth_capabilities
+        from stealth_config import get_stealth_config, apply_preset, STEALTH_PRESETS
+        
+        # Cria gerenciador stealth
+        global memory_manager
+        memory_manager = create_stealth_memory_manager()
+        
+        # Menu stealth
+        while True:
+            print("\n🥷 MENU STEALTH")
+            print("=" * 30)
+            print("[1] Demonstrar capacidades stealth")
+            print("[2] Configurar nível stealth")
+            print("[3] Aplicar preset de configuração")
+            print("[4] Ativar modo driver (máximo stealth)")
+            print("[5] Mostrar configuração atual")
+            print("[6] Scanner stealth")
+            print("[7] Anti-debug monitor")
+            print("[8] Voltar ao menu principal")
+            
+            choice = input("\nEscolha uma opção (1-8): ").strip()
+            
+            if choice == '1':
+                demo_stealth_capabilities()
+                
+            elif choice == '2':
+                config = get_stealth_config()
+                current_level = config.get_stealth_level()
+                print(f"\nNível atual: {current_level}")
+                print("Níveis disponíveis:")
+                print("0 - Desabilitado")
+                print("1 - Básico (delays aleatórios)")
+                print("2 - Moderado (+ anti-debug)")
+                print("3 - Avançado (+ camuflagem)")
+                print("4 - Alto (+ evasão de API)")
+                print("5 - Máximo (todas as técnicas)")
+                
+                try:
+                    new_level = int(input("Novo nível (0-5): ").strip())
+                    if 0 <= new_level <= 5:
+                        config.set_stealth_level(new_level)
+                        memory_manager.enable_stealth(new_level > 0)
+                        print(f"✅ Nível stealth definido para {new_level}")
+                    else:
+                        print("❌ Nível inválido")
+                except ValueError:
+                    print("❌ Digite um número válido")
+                    
+            elif choice == '3':
+                print("\nPresets disponíveis:")
+                for i, preset_name in enumerate(STEALTH_PRESETS.keys(), 1):
+                    print(f"{i}. {preset_name}")
+                
+                try:
+                    preset_choice = int(input("Escolha um preset (1-4): ").strip())
+                    preset_names = list(STEALTH_PRESETS.keys())
+                    if 1 <= preset_choice <= len(preset_names):
+                        preset_name = preset_names[preset_choice - 1]
+                        if apply_preset(preset_name):
+                            memory_manager.enable_stealth(True)
+                    else:
+                        print("❌ Opção inválida")
+                except ValueError:
+                    print("❌ Digite um número válido")
+                    
+            elif choice == '4':
+                print("\n🔧 MODO DRIVER - MÁXIMO STEALTH")
+                print("Este modo usa um driver virtual para máxima evasão")
+                print("⚠️ Funcionalidade experimental")
+                
+                confirm = input("Ativar modo driver? (y/n): ").lower()
+                if confirm == 'y':
+                    memory_manager.enable_driver_mode(True)
+                    print("✅ Modo driver ativado!")
+                else:
+                    memory_manager.enable_driver_mode(False)
+                    print("❌ Modo driver desativado")
+                    
+            elif choice == '5':
+                config = get_stealth_config()
+                config.print_current_config()
+                
+                # Status do memory manager
+                if hasattr(memory_manager, 'get_stealth_status'):
+                    status = memory_manager.get_stealth_status()
+                    print(f"\n🔧 STATUS DO SISTEMA:")
+                    print(f"Stealth Ativo: {'SIM' if status.get('stealth_enabled') else 'NÃO'}")
+                    print(f"Modo Driver: {'SIM' if status.get('driver_mode') else 'NÃO'}")
+                    print(f"Anti-Debug: {'SIM' if status.get('anti_debug_active') else 'NÃO'}")
+                    
+            elif choice == '6':
+                if not memory_manager.is_attached():
+                    print("❌ Anexe a um processo primeiro")
+                    handle_attach_process()
+                    continue
+                
+                print("\n🔍 SCANNER STEALTH")
+                try:
+                    target_value = int(input("Valor a buscar: ").strip())
+                    data_type = input("Tipo de dado (int32/float): ").strip() or "int32"
+                    
+                    print("🥷 Iniciando scan stealth...")
+                    
+                    if hasattr(memory_manager, 'scan_for_value_driver'):
+                        results = memory_manager.scan_for_value_driver(target_value, data_type)
+                    else:
+                        # Fallback para scan normal com stealth
+                        from scanner import MemoryScanner, DataType, ScanType
+                        scanner = MemoryScanner(memory_manager)
+                        results = scanner.first_scan(target_value, DataType(data_type), ScanType.EXACT)
+                    
+                    print(f"✅ Scan stealth concluído: {len(results)} resultados")
+                    
+                    if results:
+                        print("Primeiros 5 resultados:")
+                        for i, result in enumerate(results[:5]):
+                            if isinstance(result, dict):
+                                addr = result.get('address', 0)
+                                val = result.get('value', target_value)
+                            else:
+                                addr = result.address
+                                val = result.value
+                            print(f"  {i+1}. 0x{addr:08X} = {val}")
+                            
+                except ValueError:
+                    print("❌ Valor inválido")
+                except Exception as e:
+                    print(f"❌ Erro no scan: {e}")
+                    
+            elif choice == '7':
+                print("\n🛡️ MONITOR ANTI-DEBUG")
+                print("Monitorando debuggers, VMs e sandboxes...")
+                print("Pressione Ctrl+C para parar")
+                
+                try:
+                    from stealth import AntiDebugger
+                    anti_debug = AntiDebugger()
+                    
+                    def debug_callback():
+                        print("\n⚠️ AMEAÇA DETECTADA!")
+                        
+                    anti_debug.add_debug_callback(debug_callback)
+                    anti_debug.start_monitoring()
+                    
+                    try:
+                        while True:
+                            time.sleep(1)
+                    except KeyboardInterrupt:
+                        print("\n⏹️ Monitoramento parado")
+                        anti_debug.stop_monitoring()
+                        
+                except Exception as e:
+                    print(f"❌ Erro no monitor: {e}")
+                    
+            elif choice == '8':
+                print("Voltando ao menu principal...")
+                break
+                
+            else:
+                print("❌ Opção inválida")
+            
+            if choice != '8':
+                input("\nPressione Enter para continuar...")
+                
+    except ImportError as e:
+        print(f"❌ Erro ao importar módulos stealth: {e}")
+        print("Verifique se todos os arquivos stealth estão presentes")
+    except Exception as e:
+        print(f"❌ Erro no modo stealth: {e}")
+        import traceback
+        traceback.print_exc()
+
+def show_system_info():
+    """Mostra informações do sistema"""
+    print("\n💻 INFORMAÇÕES DO SISTEMA")
+    print("=" * 50)
+    
+    print(f"Sistema Operacional: {platform.system()} {platform.release()}")
+    print(f"Arquitetura: {platform.machine()}")
+    print(f"Processador: {platform.processor()}")
+    print(f"Python: {platform.python_version()}")
+    
+    # Informações de memória se psutil estiver disponível
+    try:
+        import psutil
+        memory = psutil.virtual_memory()
+        print(f"Memória Total: {memory.total / (1024**3):.1f} GB")
+        print(f"Memória Disponível: {memory.available / (1024**3):.1f} GB")
+        print(f"Uso de Memória: {memory.percent}%")
+        
+        cpu_count = psutil.cpu_count()
+        print(f"CPUs: {cpu_count}")
+        
+    except ImportError:
+        print("psutil não disponível - informações limitadas")
+    
+    # Verifica privilégios
+    is_admin = check_admin_privileges()
+    print(f"Privilégios Admin: {'✓ Sim' if is_admin else '✗ Não'}")
+
+def show_help():
+    """Mostra ajuda e instruções"""
+    help_text = """
+📚 AJUDA - PYCHEATENGINE
+
+🎯 FUNCIONALIDADES PRINCIPAIS:
+• Scanner de memória para diferentes tipos de dados
+• Resolução de cadeias de ponteiros
+• Scanner AOB (Array of Bytes) com wildcards
+• ViewMatrix scanner para jogos 3D
+• Funcionalidades stealth anti-detecção
+
+🖥️ INTERFACES DISPONÍVEIS:
+1. GUI - Interface gráfica amigável
+2. CLI - Interface de linha de comando avançada  
+3. Web Demo - Funciona no navegador
+
+🥷 MODO STEALTH:
+• Anti-debug detection
+• Detecção de VMs/Sandboxes
+• Camuflagem de processos
+• Evasão de API hooks
+• Driver virtual para máximo stealth
+
+⚠️ REQUISITOS IMPORTANTES:
+• Execute como administrador
+• Windows: Clique direito → "Executar como administrador"
+• Linux: Use 'sudo python3 main.py'
+
+🔧 DICAS DE USO:
+• Sempre anexe a um processo antes de fazer scans
+• Use valores únicos para facilitar a busca
+• Teste em processos simples primeiro
+• Modo stealth para evasão avançada
+
+🆘 PROBLEMAS COMUNS:
+• "Acesso negado": Execute como administrador
+• "Processo não encontrado": Verifique se o PID está correto
+• "Falha ao ler memória": Processo pode ter proteção
+
+📧 SUPORTE:
+Este é um projeto educacional para aprendizado de
+engenharia reversa e manipulação de memória.
+Use responsavelmente e apenas em processos autorizados.
+"""
+    print(help_text)
 
 def main_loop():
     """Laço principal do programa"""
