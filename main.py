@@ -74,8 +74,9 @@ def show_banner():
 ║  • Interface de linha de comando                                            ║
 ║  • Sistema de sessões para salvar/carregar estado                           ║
 ║                                                                              ║
-║  AVISO: Este programa requer privilégios administrativos para acessar       ║
-║         a memória de outros processos. Use com responsabilidade!            ║
+║  ⚠️  IMPORTANTE: EXECUTE COMO ADMINISTRADOR                                  ║
+║      Este programa EXIGE privilégios administrativos para funcionar!        ║
+║      Use com responsabilidade e apenas em processos autorizados!            ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     """
@@ -155,11 +156,18 @@ def show_help():
     help_text = """
 AJUDA - PyCheatEngine
 
-REQUISITOS:
+REQUISITOS OBRIGATÓRIOS:
 • Windows (recomendado) ou Linux
 • Python 3.8 ou superior
-• Privilégios administrativos
+• ⚠️  PRIVILÉGIOS ADMINISTRATIVOS (OBRIGATÓRIO)
 • Bibliotecas: psutil, tkinter (GUI)
+
+COMO EXECUTAR COMO ADMINISTRADOR:
+Windows:
+  1. Botão direito no Prompt de Comando → "Executar como administrador"
+  2. Ou botão direito no arquivo Python → "Executar como administrador"
+Linux:
+  sudo python3 main.py
 
 COMO USAR:
 
@@ -342,24 +350,30 @@ def main():
             print("\nInstale as dependências necessárias antes de continuar.")
             return 1
 
-        # Verifica privilégios administrativos
+        # Verifica privilégios administrativos (OBRIGATÓRIO)
         if not args.no_admin_check:
             if not check_admin_privileges():
-                print("\n⚠️  AVISO: O programa não está sendo executado com privilégios administrativos!")
-                print("Algumas funcionalidades podem não funcionar corretamente.")
-                print("Para melhor experiência, execute como administrador.")
+                print("\n❌ ERRO: Este programa DEVE ser executado com privilégios administrativos!")
+                print("É necessário para acessar a memória de outros processos.")
+                print("\nComo executar como administrador:")
 
                 if platform.system() == "Windows":
-                    response = input("\nDeseja tentar executar como administrador? (s/N): ").lower()
+                    print("1. Clique com botão direito no Prompt de Comando")
+                    print("2. Selecione 'Executar como administrador'")
+                    print("3. Execute: python main.py")
+                    print("\nOu clique com botão direito no arquivo .py e 'Executar como administrador'")
+                    
+                    response = input("\nTentar executar como administrador automaticamente? (s/N): ").lower()
                     if response in ['s', 'sim', 'y', 'yes']:
+                        print("Solicitando privilégios administrativos...")
                         request_admin_privileges()
                         return 0
                 else:
                     print(f"Execute: sudo python3 {sys.argv[0]}")
 
-                response = input("\nContinuar mesmo assim? (s/N): ").lower()
-                if response not in ['s', 'sim', 'y', 'yes']:
-                    return 0
+                print("\n❌ PROGRAMA ENCERRADO - Privilégios administrativos são obrigatórios")
+                print("Para pular esta verificação (modo debug): python main.py --no-admin-check")
+                return 1
 
         # Execução baseada em argumentos
         if args.info:
