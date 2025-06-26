@@ -181,6 +181,11 @@ COMO USAR:
    - Controle total via comandos
    - Ideal para automação e scripts
 
+3. Modo Stealth 🥷:
+   - Funcionalidades anti-detecção avançadas
+   - Múltiplos níveis de evasão (1-5)
+   - Técnicas profissionais de bypass
+
 FUNCIONALIDADES PRINCIPAIS:
 
 • Scanner de Memória:
@@ -203,15 +208,64 @@ FUNCIONALIDADES PRINCIPAIS:
   - Carrega sessões anteriores
   - Formato JSON legível
 
-SEGURANÇA:
-• Use apenas em processos próprios ou autorizados
+🥷 FUNCIONALIDADES STEALTH:
+
+• Anti-Debug:
+  - Detecta debuggers anexados
+  - Monitora ambiente de execução
+  - Identifica VMs e sandboxes
+
+• Evasão de API:
+  - Detecta hooks de antivírus
+  - Bypass de monitoramento
+  - Operações de memória stealth
+
+• Camuflagem:
+  - Process hollowing
+  - Nomes de processo falsos
+  - Títulos de janela camuflados
+
+• Criptografia:
+  - Protege regiões de memória
+  - Ofusca endereços e strings
+  - Chaves baseadas no sistema
+
+• Rede:
+  - Gera tráfego falso
+  - Mascara comunicações
+  - Conexões de distração
+
+NÍVEIS STEALTH:
+Nível 0: Desativado
+Nível 1: Básico (Anti-debug, delays aleatórios)
+Nível 2: Intermediário (+ Detecção de hooks, criptografia)
+Nível 3: Avançado (+ Bypass de hooks, tráfego falso)
+Nível 4: Expert (+ Process hollowing, proteção avançada)
+Nível 5: Máximo (+ Todas as técnicas disponíveis)
+
+SEGURANÇA E ÉTICA:
+• ⚠️ APENAS PARA FINS EDUCACIONAIS E TESTES AUTORIZADOS
+• Use apenas em processos próprios ou com permissão
 • Não utilize para trapacear em jogos online
+• Respeite leis locais sobre engenharia reversa
 • Cuidado com processos críticos do sistema
+
+CONFIGURAÇÃO STEALTH:
+• Arquivo: stealth_config.json
+• Presets: educational, testing, advanced, maximum
+• Configurações de segurança para limitar funcionalidades perigosas
 
 TROUBLESHOOTING:
 • Se não conseguir anexar a um processo, verifique privilégios
 • Para processos 64-bit, use Python 64-bit
 • Alguns antivírus podem detectar como falso positivo
+• Se stealth falhar, verifique configurações de segurança
+
+AVISOS LEGAIS:
+• Esta ferramenta é destinada apenas para educação e pesquisa
+• O uso indevido pode violar leis locais
+• O desenvolvedor não se responsabiliza pelo uso incorreto
+• Sempre obtenha permissão antes de analisar processos de terceiros
 
 Para mais informações, consulte a documentação ou o código fonte.
     """
@@ -284,6 +338,102 @@ def run_web_demo():
     except Exception as e:
         print(f"\nErro no demo web: {e}")
         print("Tente executar diretamente: python web_demo.py")
+
+def run_stealth_mode():
+    """Executa o modo stealth com funcionalidades anti-detecção"""
+    try:
+        print("\n🥷 MODO STEALTH ATIVADO")
+        print("=" * 50)
+        print("AVISO: Este modo implementa técnicas avançadas de evasão")
+        print("Use apenas para fins educacionais e testes autorizados!")
+        print("=" * 50)
+        
+        # Importa módulo stealth
+        import stealth
+        
+        # Menu stealth
+        while True:
+            print("\n🥷 OPÇÕES STEALTH:")
+            print("1. Demo das capacidades stealth")
+            print("2. Verificar detecção de debugger")
+            print("3. Verificar ambiente de execução")
+            print("4. Scanner stealth avançado")
+            print("5. Esconder janela do console")
+            print("6. Memory manager stealth")
+            print("7. Voltar ao menu principal")
+            
+            choice = input("\nEscolha uma opção (1-7): ").strip()
+            
+            if choice == '1':
+                stealth.demo_stealth_capabilities()
+            elif choice == '2':
+                anti_debug = stealth.AntiDebugger()
+                print(f"\n🛡️ VERIFICAÇÃO ANTI-DEBUG:")
+                print(f"Debugger presente: {'SIM' if anti_debug.check_debugger_present() else 'NÃO'}")
+                print(f"Ambiente VM: {'SIM' if anti_debug.check_vm_environment() else 'NÃO'}")
+                print(f"Ambiente Sandbox: {'SIM' if anti_debug.check_sandbox_environment() else 'NÃO'}")
+            elif choice == '3':
+                print(f"\n🔍 ANÁLISE DO AMBIENTE:")
+                print(f"Sistema sendo monitorado: {'SIM' if stealth.check_if_being_monitored() else 'NÃO'}")
+                
+                # Informações detalhadas
+                import psutil
+                print(f"Processos em execução: {len(psutil.pids())}")
+                print(f"Tempo de uptime: {(time.time() - psutil.boot_time()) / 3600:.1f} horas")
+                
+            elif choice == '4':
+                if not memory_manager.is_attached():
+                    print("❌ Nenhum processo anexado. Use a opção de anexar processo primeiro.")
+                else:
+                    stealth_scanner = stealth.StealthScanner(memory_manager)
+                    
+                    value = input("Digite o valor para buscar: ")
+                    try:
+                        value = int(value)
+                        print("🥷 Iniciando scanner stealth...")
+                        results = stealth_scanner.stealth_scan_memory(value, "int32", "exact")
+                        print(f"✅ Scanner stealth encontrou {len(results)} resultados")
+                        
+                        # Mostra alguns resultados
+                        for i, result in enumerate(results[:5]):
+                            print(f"  {i+1}. 0x{result['address']:08X} = {result['value']}")
+                        
+                    except ValueError:
+                        print("❌ Valor inválido")
+                        
+            elif choice == '5':
+                if stealth.hide_console_window():
+                    print("✅ Janela do console escondida (Windows)")
+                else:
+                    print("❌ Não foi possível esconder janela (apenas Windows)")
+                    
+            elif choice == '6':
+                if not memory_manager.is_attached():
+                    print("❌ Nenhum processo anexado primeiro")
+                else:
+                    print("🥷 Ativando memory manager stealth...")
+                    stealth_mem = stealth.create_stealth_memory_manager()
+                    stealth_mem.enable_stealth(True)
+                    print("✅ Memory manager stealth ativado!")
+                    print("• Operações de memória agora usam técnicas de evasão")
+                    print("• Delays aleatórios entre operações")
+                    print("• Leitura/escrita em chunks pequenos")
+                    print("• Anti-debug monitoring ativo")
+                    
+            elif choice == '7':
+                break
+            else:
+                print("❌ Opção inválida")
+            
+            if choice != '7':
+                input("\nPressione Enter para continuar...")
+                
+    except KeyboardInterrupt:
+        print("\n\n🥷 Modo stealth encerrado pelo usuário")
+    except Exception as e:
+        print(f"\n❌ Erro no modo stealth: {e}")
+        import traceback
+        traceback.print_exc()
 
 def check_dependencies():
     """Verifica se as dependências estão instaladas"""
@@ -440,9 +590,10 @@ Escolha uma opção:
 [1] Interface Gráfica (GUI) - Recomendado para usuários iniciantes
 [2] Interface de Linha de Comando (CLI) - Para usuários avançados
 [3] Demo Web Interativo - Funciona perfeitamente no Replit
-[4] Mostrar informações do sistema
-[5] Verificar privilégios
-[6] Ajuda
+[4] Modo Stealth 🥷 - Funcionalidades anti-detecção
+[5] Mostrar informações do sistema
+[6] Verificar privilégios
+[7] Ajuda
 [0] Sair
 
 """
@@ -450,11 +601,11 @@ Escolha uma opção:
 
     while True:
         try:
-            choice = input("Digite sua opção (0-6): ").strip()
-            if choice in ['0', '1', '2', '3', '4', '5', '6']:
+            choice = input("Digite sua opção (0-7): ").strip()
+            if choice in ['0', '1', '2', '3', '4', '5', '6', '7']:
                 return choice
             else:
-                print("Opção inválida. Digite um número entre 0 e 6.")
+                print("Opção inválida. Digite um número entre 0 e 7.")
         except (EOFError, KeyboardInterrupt):
             return '0'
 
@@ -955,13 +1106,15 @@ def main_loop():
         elif choice == '3':
             run_web_demo()
         elif choice == '4':
-            show_system_info()
+            run_stealth_mode()
         elif choice == '5':
+            show_system_info()
+        elif choice == '6':
             is_admin = check_admin_privileges()
             print(f"\nPrivilégios Administrativos: {'✓ Sim' if is_admin else '✗ Não'}")
             if not is_admin:
                 print("Execute o programa como administrador para melhor funcionalidade.")
-        elif choice == '6':
+        elif choice == '7':
             show_help()
 
         # Pausa antes de mostrar o menu novamente
