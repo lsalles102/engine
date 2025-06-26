@@ -429,56 +429,57 @@ class ProcessDarkGUI:
             self.attach_to_process(dialog.result)
 
     def attach_to_process(self, process_id: int):
-        """Anexa a um processo"""
+        """Anexa a um processo usando sistema avançado"""
         try:
-            self.log_message(f"🔗 Iniciando anexação ao processo PID {process_id}...")
-
-            # Verifica se o processo existe e obtém informações
-            process_name = f"Process_{process_id}"
-            process_status = "unknown"
-            
-            try:
-                import psutil
-                process = psutil.Process(process_id)
-                process_name = process.name()
-                process_status = process.status()
-                
-                self.log_message(f"✓ Processo verificado: {process_name} (Status: {process_status})")
-
-                # Verifica se processo não é zombie
-                if process_status == psutil.STATUS_ZOMBIE:
-                    self.log_message(f"❌ Processo {process_id} é um zombie", "error")
-                    messagebox.showerror("Processo Zombie", 
-                        f"O processo {process_name} (PID: {process_id}) é um processo zombie.\n\n" +
-                        "Processos zombie não podem ser anexados.\n" +
-                        "Escolha outro processo da lista.")
-                    return
-
-            except psutil.NoSuchProcess:
-                self.log_message(f"❌ Processo {process_id} não existe", "error")
-                messagebox.showerror("Processo Não Encontrado", 
-                    f"O processo PID {process_id} não foi encontrado.\n\n" +
-                    "O processo pode ter sido encerrado.\n" +
-                    "Clique em 'Atualizar Lista' e tente novamente.")
-                return
-            except psutil.AccessDenied:
-                self.log_message(f"⚠️ Acesso limitado ao processo {process_id}", "warning")
-                process_name = f"Process_{process_id}"
-            except Exception as e:
-                self.log_message(f"⚠️ Erro ao verificar processo: {e}", "warning")
-
-            # Mostra progresso da anexação
-            self.log_message("🔄 Tentando anexar com diferentes níveis de acesso...")
-            self.root.update_idletasks()
+            self.log_message(f"🚀 Iniciando ANEXAÇÃO AVANÇADA ao processo PID {process_id}...")
+            self.log_message("🔍 Analisando processo e detectando proteções...")
 
             # Desabilita botões durante anexação
             self.first_scan_btn.configure(state='disabled')
             self.next_scan_btn.configure(state='disabled')
+            
+            # Cria dialog de progresso
+            progress_window = self.create_attachment_progress_dialog()
+            self.root.update()
 
-            # Tenta anexar
-            anexacao_sucesso = self.memory_manager.attach_to_process(process_id)
+            # Executa anexação em thread para não travar interface
+            import threading
+            
+            result_container = {'success': False, 'error': None, 'info': None}
+            
+            def attachment_worker():
+                try:
+                    # Anexação com sistema avançado
+                    success = self.memory_manager.attach_to_process(process_id)
+                    result_container['success'] = success
+                    
+                    if success:
+                        # Obtém informações detalhadas
+                        info = self.memory_manager.get_process_info()
+                        result_container['info'] = info
+                        
+                except Exception as e:
+                    result_container['error'] = str(e)
+                    result_container['success'] = False
 
-            if anexacao_sucesso and self.memory_manager.is_attached():
+            # Executa anexação
+            thread = threading.Thread(target=attachment_worker, daemon=True)
+            thread.start()
+            
+            # Monitora progresso
+            while thread.is_alive():
+                self.root.update()
+                progress_window.update()
+                time.sleep(0.1)
+            
+            # Fecha dialog de progresso
+            progress_window.destroy()
+            
+            # Processa resultado
+            if result_container['success']:
+                info = result_container.get('info', {})
+                process_name = info.get('process_name', f'Process_{process_id}')
+                
                 # SUCESSO - Configura o scanner
                 self.scanner = MemoryScanner(self.memory_manager)
                 self.scanner.set_progress_callback(self.update_scan_progress)
@@ -491,57 +492,23 @@ class ProcessDarkGUI:
                     except Exception as e:
                         self.log_message(f"⚠️ Erro ao reativar stealth: {e}", "warning")
 
-                self.log_message(f"✅ ANEXAÇÃO BEM-SUCEDIDA! PID {process_id} ({process_name})", "success")
+                self.log_message(f"✅ ANEXAÇÃO AVANÇADA BEM-SUCEDIDA! PID {process_id} ({process_name})", "success")
 
-                # Atualiza interface IMEDIATAMENTE - múltiplas tentativas
-                def force_interface_update():
-                    # Atualiza labels principais
-                    self.process_info_label.configure(
-                        text=f"✅ PID: {process_id} ({process_name})", 
-                        style='Success.TLabel'
-                    )
-                    self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
-                    
-                    # Força repaint imediato
-                    self.process_info_label.update()
-                    self.status_label.update()
-                    
-                    # Atualiza estado dos botões
-                    self.first_scan_btn.configure(state='normal')
-                    self.first_scan_btn.update()
-                    
-                    # Força atualização completa do root
-                    self.root.update_idletasks()
-                    self.root.update()
+                # Mostra informações detalhadas da anexação
+                self.show_attachment_details(process_id, info)
 
-                # Executa atualização múltiplas vezes
-                for i in range(5):
-                    force_interface_update()
-                    self.root.after(i * 10, force_interface_update)
+                # Atualiza interface
+                self.force_interface_update(process_id, process_name)
 
                 # Log de confirmação
-                self.log_message("✅ Interface atualizada - Pronto para scanning!", "success")
-
-                # Mensagem de sucesso (agenda para depois da atualização)
-                def show_success_message():
-                    success_msg = f"✅ Processo anexado com sucesso!\n\n"
-                    success_msg += f"📋 PID: {process_id}\n"
-                    success_msg += f"📝 Nome: {process_name}\n"
-                    success_msg += f"🎯 Status: Pronto para scanning\n"
-                    
-                    if self.stealth_enabled:
-                        success_msg += f"🥷 Modo Stealth: Ativo\n"
-                    
-                    success_msg += f"\n💡 Agora você pode fazer scans de memória!"
-                    messagebox.showinfo("Anexação Bem-Sucedida", success_msg)
-
-                # Agenda mensagem após todas as atualizações
-                self.root.after(200, show_success_message)
+                self.log_message("✅ Interface atualizada - Sistema pronto para scanning!", "success")
                 return
 
             else:
                 # FALHA na anexação
-                self.log_message(f"❌ FALHA na anexação ao processo {process_id}", "error")
+                error_msg = result_container.get('error', 'Falha desconhecida')
+                self.log_message(f"❌ FALHA na anexação avançada ao processo {process_id}", "error")
+                self.log_message(f"❌ Erro: {error_msg}", "error")
 
                 # Limpa estado
                 self.memory_manager.close()
@@ -551,21 +518,11 @@ class ProcessDarkGUI:
                 self.status_label.configure(text="ProcessDark - Pronto")
                 self.update_interface_state()
 
-                # Mensagem de erro mais específica
-                error_msg = f"❌ Não foi possível anexar ao processo:\n\n"
-                error_msg += f"📋 PID: {process_id}\n"
-                error_msg += f"📝 Nome: {process_name}\n\n"
-                error_msg += f"🔧 Possíveis causas e soluções:\n\n"
-                error_msg += f"• Execute como Administrador\n"
-                error_msg += f"• Processo pode estar protegido por antivírus\n"
-                error_msg += f"• Processo pode ter permissões especiais\n"
-                error_msg += f"• Tente anexar ao notepad.exe ou calc.exe primeiro\n\n"
-                error_msg += f"💡 Dica: Abra o Bloco de Notas e tente anexar a ele."
-
-                messagebox.showerror("Falha na Anexação", error_msg)
+                # Mensagem de erro detalhada
+                self.show_attachment_error(process_id, error_msg)
 
         except Exception as e:
-            self.log_message(f"❌ Erro inesperado ao anexar: {e}", "error")
+            self.log_message(f"❌ Erro crítico na anexação: {e}", "error")
             import traceback
             traceback.print_exc()
 
@@ -576,21 +533,145 @@ class ProcessDarkGUI:
                 pass
 
             # Força interface para estado desanexado
-            self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
+            self.process_info_label.configure(text="❌ Erro crítico", style='Error.TLabel')
             self.status_label.configure(text="ProcessDark - Erro")
             self.update_interface_state()
 
-            error_msg = f"❌ Erro inesperado durante anexação:\n\n{str(e)[:200]}\n\n"
-            error_msg += f"🔧 Tente:\n"
-            error_msg += f"• Reiniciar o ProcessDark\n"
-            error_msg += f"• Executar como administrador\n"
-            error_msg += f"• Escolher outro processo"
-
-            messagebox.showerror("Erro Inesperado", error_msg)
+            messagebox.showerror("Erro Crítico", 
+                f"Erro crítico durante anexação:\n{str(e)[:200]}\n\n" +
+                "Reinicie o ProcessDark e tente novamente.")
         
         finally:
             # Sempre reabilita botões no final
             self.update_interface_state()
+
+    def create_attachment_progress_dialog(self):
+        """Cria dialog de progresso da anexação"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Anexando Processo")
+        dialog.geometry("400x200")
+        dialog.configure(bg='#2b2b2b')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Centraliza na tela
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (400 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (200 // 2)
+        dialog.geometry(f"400x200+{x}+{y}")
+        
+        # Conteúdo
+        frame = ttk.Frame(dialog, style='Dark.TFrame')
+        frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        ttk.Label(frame, text="🚀 Anexação Avançada em Progresso", 
+                 style='Dark.TLabel', font=('Arial', 12, 'bold')).pack(pady=(0, 10))
+        
+        ttk.Label(frame, text="🔍 Analisando processo e proteções...", 
+                 style='Dark.TLabel').pack(pady=5)
+        
+        ttk.Label(frame, text="🛡️ Testando estratégias de anexação...", 
+                 style='Dark.TLabel').pack(pady=5)
+        
+        ttk.Label(frame, text="🧪 Verificando capacidades de memória...", 
+                 style='Dark.TLabel').pack(pady=5)
+        
+        # Barra de progresso indeterminada
+        progress = ttk.Progressbar(frame, mode='indeterminate')
+        progress.pack(fill=tk.X, pady=10)
+        progress.start(10)
+        
+        ttk.Label(frame, text="⏳ Aguarde...", style='Dark.TLabel').pack()
+        
+        return dialog
+
+    def show_attachment_details(self, process_id: int, info: dict):
+        """Mostra detalhes da anexação bem-sucedida"""
+        details_msg = "🎯 ANEXAÇÃO AVANÇADA COMPLETA\n"
+        details_msg += "=" * 40 + "\n\n"
+        
+        details_msg += f"📋 PID: {process_id}\n"
+        details_msg += f"📝 Nome: {info.get('process_name', 'Unknown')}\n"
+        details_msg += f"💻 Plataforma: {info.get('platform', 'Unknown')}\n"
+        
+        if 'memory_usage' in info:
+            memory_mb = info['memory_usage'] / (1024 * 1024)
+            details_msg += f"💾 Uso de Memória: {memory_mb:.1f} MB\n"
+        
+        if 'cpu_percent' in info:
+            details_msg += f"⚡ CPU: {info.get('cpu_percent', 0):.1f}%\n"
+        
+        details_msg += "\n🔧 Capacidades Disponíveis:\n"
+        details_msg += "• ✅ Leitura de Memória\n"
+        details_msg += "• ✅ Escrita de Memória\n"
+        details_msg += "• ✅ Scanning Avançado\n"
+        details_msg += "• ✅ Enumeração de Regiões\n"
+        
+        if self.stealth_enabled:
+            details_msg += "\n🥷 Modo Stealth: ATIVO\n"
+        
+        details_msg += "\n🚀 Sistema pronto para operação!"
+        
+        self.log_message("📊 Detalhes da anexação:", "success")
+        for line in details_msg.split('\n'):
+            if line.strip():
+                self.log_message(f"   {line}", "info")
+
+    def show_attachment_error(self, process_id: int, error_msg: str):
+        """Mostra detalhes do erro de anexação"""
+        error_details = f"❌ FALHA NA ANEXAÇÃO AVANÇADA\n\n"
+        error_details += f"📋 Processo: PID {process_id}\n"
+        error_details += f"❌ Erro: {error_msg}\n\n"
+        
+        error_details += f"🔧 SOLUÇÕES RECOMENDADAS:\n\n"
+        error_details += f"1️⃣ EXECUTE COMO ADMINISTRADOR\n"
+        error_details += f"   • Clique direito no ProcessDark\n"
+        error_details += f"   • Selecione 'Executar como administrador'\n\n"
+        
+        error_details += f"2️⃣ TESTE COM PROCESSOS SIMPLES\n"
+        error_details += f"   • Abra o Bloco de Notas (notepad.exe)\n"
+        error_details += f"   • Abra a Calculadora (calc.exe)\n"
+        error_details += f"   • Tente anexar a estes processos primeiro\n\n"
+        
+        error_details += f"3️⃣ DESATIVE ANTIVÍRUS TEMPORARIAMENTE\n"
+        error_details += f"   • Alguns antivírus bloqueiam anexação\n"
+        error_details += f"   • Adicione ProcessDark às exceções\n\n"
+        
+        error_details += f"4️⃣ VERIFIQUE PROTEÇÕES DO PROCESSO\n"
+        error_details += f"   • Alguns jogos têm anti-cheat\n"
+        error_details += f"   • Browsers têm proteções de sandbox\n"
+        error_details += f"   • Processos do sistema são protegidos\n\n"
+        
+        error_details += f"💡 DICA: Comece com processos simples e depois\n"
+        error_details += f"    tente processos mais complexos."
+        
+        messagebox.showerror("Falha na Anexação Avançada", error_details)
+
+    def force_interface_update(self, process_id: int, process_name: str):
+        """Força atualização da interface após anexação bem-sucedida"""
+        def update_interface():
+            # Atualiza labels principais
+            self.process_info_label.configure(
+                text=f"✅ PID: {process_id} ({process_name})", 
+                style='Success.TLabel'
+            )
+            self.status_label.configure(text=f"✅ Anexado - Sistema Avançado Ativo")
+            
+            # Atualiza estado dos botões
+            self.first_scan_btn.configure(state='normal')
+            
+            # Força repaint
+            self.process_info_label.update()
+            self.status_label.update()
+            self.first_scan_btn.update()
+            
+            # Força atualização completa
+            self.root.update_idletasks()
+            self.root.update()
+
+        # Executa atualização múltiplas vezes com delays
+        for i in range(10):
+            self.root.after(i * 5, update_interface)
 
     def detach_process(self):
         """Desanexa do processo atual"""
