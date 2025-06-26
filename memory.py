@@ -48,7 +48,10 @@ class MemoryManager:
         """
         print(f"🔗 Tentando anexar ao processo PID {process_id}...")
         
-        # Primeiro verifica se o processo existe
+        # Limpa estado anterior
+        self.close()
+        
+        # Verifica se o processo existe
         try:
             import psutil
             process = psutil.Process(process_id)
@@ -72,88 +75,80 @@ class MemoryManager:
             if IS_WINDOWS:
                 print("🪟 Usando Windows API...")
                 
-                # Tenta diferentes níveis de acesso
+                # Tenta diferentes níveis de acesso em ordem de preferência
                 access_levels = [
-                    PROCESS_ALL_ACCESS,
-                    PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
-                    PROCESS_VM_READ | PROCESS_VM_WRITE,
-                    PROCESS_VM_READ
+                    ("Completo", PROCESS_ALL_ACCESS),
+                    ("VM + Query", PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION),
+                    ("VM Read/Write", PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION),
+                    ("Somente Read", PROCESS_VM_READ)
                 ]
                 
-                for i, access_level in enumerate(access_levels):
-                    print(f"  Tentativa {i+1}: Nível de acesso 0x{access_level:X}")
+                success = False
+                for desc, access_level in access_levels:
+                    print(f"  Tentando acesso {desc} (0x{access_level:X})...")
                     
-                    self.process_handle = kernel32.OpenProcess(
-                        access_level,
-                        False,
-                        process_id
-                    )
-
-                    if self.process_handle:
-                        print(f"✓ Sucesso com nível de acesso {i+1}")
+                    handle = kernel32.OpenProcess(access_level, False, process_id)
+                    
+                    if handle and handle != -1:
+                        self.process_handle = handle
+                        print(f"✓ Sucesso com acesso {desc}")
+                        success = True
                         break
-                else:
-                    # Se chegou aqui, nenhum nível funcionou
-                    error_code = ctypes.windll.kernel32.GetLastError()
-                    print(f"❌ Falha em todos os níveis de acesso. Código de erro: {error_code}")
-                    
-                    if error_code == 5:  # ERROR_ACCESS_DENIED
-                        print("💡 Dica: Execute como administrador!")
-                    elif error_code == 87:  # ERROR_INVALID_PARAMETER
-                        print("💡 PID inválido ou processo protegido")
-                    
+                    else:
+                        error_code = ctypes.windll.kernel32.GetLastError()
+                        print(f"  ❌ Falhou - Código: {error_code}")
+                
+                if not success:
+                    print(f"❌ Falha em todos os níveis de acesso")
+                    print("💡 Execute como administrador ou escolha outro processo")
                     return False
 
             elif IS_LINUX:
                 print("🐧 Usando Linux /proc...")
                 
-                # Linux: abre /proc/PID/mem
                 try:
                     self.mem_file = open(f'/proc/{process_id}/mem', 'r+b')
-                    print("✓ Arquivo /proc/PID/mem aberto com sucesso")
+                    print("✓ Arquivo /proc/PID/mem aberto")
                 except PermissionError:
-                    print(f"❌ Sem permissão para acessar /proc/{process_id}/mem")
-                    print("💡 Dica: Execute com sudo!")
+                    print(f"❌ Sem permissão para /proc/{process_id}/mem")
+                    print("💡 Execute com sudo!")
                     return False
                 except FileNotFoundError:
-                    print(f"❌ Arquivo /proc/{process_id}/mem não encontrado")
+                    print(f"❌ Arquivo não encontrado")
                     return False
 
-            # Se chegou aqui, anexação foi bem-sucedida
+            # Define process_id ANTES de testar
             self.process_id = process_id
-            print(f"🎯 Anexado com sucesso ao processo {process_id}!")
-            print(f"   - Process ID armazenado: {self.process_id}")
-            print(f"   - Process handle: {self.process_handle if IS_WINDOWS else 'Linux mode'}")
-            print(f"   - Is attached (primeira verificação): {self.is_attached()}")
             
-            # Verificação dupla para garantir
-            import time
-            time.sleep(0.1)  # Pequena pausa
-            second_check = self.is_attached()
-            print(f"   - Is attached (segunda verificação): {second_check}")
-            
-            if not second_check:
-                print("❌ Anexação perdida na segunda verificação!")
-                return False
-            
-            # Teste básico de leitura para confirmar
+            # Testa a anexação com leitura simples
             try:
-                test_data = self.read_memory(0x10000, 4)
-                if test_data is not None:
-                    print("✓ Teste de leitura básico: OK")
+                # Tenta ler um endereço comum (cabeçalho PE em Windows)
+                if IS_WINDOWS:
+                    test_addresses = [0x400000, 0x10000000, 0x140000000]
                 else:
-                    print("⚠️ Teste de leitura básico: Falhou (normal em alguns casos)")
+                    test_addresses = [0x400000, 0x8048000]
+                
+                read_success = False
+                for addr in test_addresses:
+                    test_data = self.read_memory(addr, 4)
+                    if test_data is not None:
+                        read_success = True
+                        print(f"✓ Teste de leitura em 0x{addr:X}: OK")
+                        break
+                
+                if not read_success:
+                    print("⚠️ Nenhum teste de leitura foi bem-sucedido")
+                    print("  Mas a anexação pode ainda estar funcional")
+                
             except Exception as e:
                 print(f"⚠️ Erro no teste de leitura: {e}")
             
-            print(f"✅ ANEXAÇÃO FINAL CONFIRMADA para PID {process_id}")
-            print(f"   - Estado final: process_id={self.process_id}, handle={'OK' if self.process_handle else 'NONE'}")
+            print(f"✅ ANEXADO com sucesso ao PID {process_id}")
             return True
 
         except Exception as e:
             print(f"❌ Erro inesperado ao anexar: {e}")
-            import traceback
-            traceback.print_exc()
+            self.close()  # Limpa em caso de erro
             return False
 
     def is_attached(self) -> bool:
@@ -372,108 +367,112 @@ class MemoryManager:
         print("🔍 Iniciando listagem de processos...")
         
         try:
-            # Primeira tentativa: usar psutil
-            process_count = 0
-            for proc in psutil.process_iter(['pid', 'name', 'exe', 'status']):
-                try:
-                    proc_info = proc.info
-                    if proc_info['pid'] and proc_info['pid'] > 0:
-                        # Filtra processos do sistema muito básicos
-                        if proc_info['pid'] < 10:
-                            continue
-                            
-                        process_name = proc_info.get('name', f"Process_{proc_info['pid']}")
-                        exe_path = proc_info.get('exe', 'Unknown')
-                        
-                        # Pula processos sem nome válido
-                        if not process_name or process_name == '':
-                            continue
-                            
-                        processes.append({
-                            'pid': proc_info['pid'],
-                            'name': process_name,
-                            'exe': exe_path,
-                            'status': proc_info.get('status', 'unknown')
-                        })
-                        process_count += 1
-                        
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
-                except Exception as e:
-                    # Para processos problemáticos, tenta adicionar com info mínima
-                    try:
-                        if hasattr(proc, 'pid') and proc.pid > 10:
-                            processes.append({
-                                'pid': proc.pid,
-                                'name': f"Process_{proc.pid}",
-                                'exe': 'Access Denied',
-                                'status': 'unknown'
-                            })
-                    except:
-                        continue
-                        
-            print(f"✓ Encontrados {process_count} processos via psutil")
-            
-        except Exception as e:
-            print(f"⚠️ Erro com psutil: {e}")
-            
-            # Fallback: usar tasklist no Windows
             if IS_WINDOWS:
+                # Windows: usar WMI primeiro, depois psutil
                 try:
-                    print("🔄 Tentando fallback com tasklist...")
                     import subprocess
-                    result = subprocess.run(['tasklist', '/fo', 'csv'], 
-                                          capture_output=True, text=True, timeout=15)
+                    print("🔄 Usando wmic para listagem...")
+                    result = subprocess.run([
+                        'wmic', 'process', 'get', 
+                        'ProcessId,Name,ExecutablePath', 
+                        '/format:csv'
+                    ], capture_output=True, text=True, timeout=10)
                     
                     if result.returncode == 0:
                         lines = result.stdout.strip().split('\n')[1:]  # Skip header
                         for line in lines:
                             if line.strip():
                                 try:
-                                    parts = [p.strip('"') for p in line.split('","')]
-                                    if len(parts) >= 2:
-                                        pid = int(parts[1])
-                                        if pid > 10:  # Filtra processos do sistema
-                                            # Adiciona mais informações quando disponível
-                                            memory_usage = parts[4] if len(parts) > 4 else 'N/A'
+                                    parts = line.split(',')
+                                    if len(parts) >= 3 and parts[2].strip():
+                                        pid = int(parts[2].strip())
+                                        name = parts[1].strip() or f"Process_{pid}"
+                                        exe = parts[0].strip() or 'Unknown'
+                                        
+                                        if pid > 4:  # Evita processos do sistema críticos
                                             processes.append({
                                                 'pid': pid,
-                                                'name': parts[0],
-                                                'exe': parts[0],
-                                                'status': 'running',
-                                                'memory': memory_usage
+                                                'name': name,
+                                                'exe': exe,
+                                                'status': 'running'
                                             })
                                 except (ValueError, IndexError):
                                     continue
-                        print(f"✓ Encontrados {len(processes)} processos via tasklist")
-                    else:
-                        print(f"❌ tasklist falhou com código: {result.returncode}")
-                except Exception as e2:
-                    print(f"❌ Falha no fallback: {e2}")
-                    
-            # Último recurso: processos estáticos para demonstração
+                        print(f"✓ {len(processes)} processos via wmic")
+                except Exception as e:
+                    print(f"⚠️ wmic falhou: {e}")
+            
+            # Fallback com psutil (funciona em Windows e Linux)
             if not processes:
-                print("🔄 Usando lista de demonstração...")
+                print("🔄 Usando psutil...")
+                try:
+                    for proc in psutil.process_iter(['pid', 'name', 'exe']):
+                        try:
+                            pinfo = proc.info
+                            pid = pinfo['pid']
+                            
+                            if pid and pid > 4:  # Evita processos críticos
+                                name = pinfo.get('name', f"Process_{pid}")
+                                exe = pinfo.get('exe', 'Unknown')
+                                
+                                # Filtra nomes vazios ou inválidos
+                                if name and name.strip():
+                                    processes.append({
+                                        'pid': pid,
+                                        'name': name,
+                                        'exe': exe,
+                                        'status': 'running'
+                                    })
+                                    
+                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                            continue
+                        except Exception:
+                            continue
+                    
+                    print(f"✓ {len(processes)} processos via psutil")
+                
+                except Exception as e:
+                    print(f"⚠️ psutil falhou: {e}")
+            
+            # Último recurso: adiciona processos comuns para demonstração
+            if not processes:
+                print("🔄 Adicionando processos de demonstração...")
+                import os
+                current_pid = os.getpid()
+                
                 demo_processes = [
-                    {'pid': 1234, 'name': 'notepad.exe', 'exe': 'notepad.exe', 'status': 'demo'},
-                    {'pid': 5678, 'name': 'calculator.exe', 'exe': 'calc.exe', 'status': 'demo'},
-                    {'pid': 9999, 'name': 'demo_process.exe', 'exe': 'demo.exe', 'status': 'demo'}
+                    {'pid': current_pid, 'name': 'python.exe', 'exe': 'python.exe', 'status': 'current'},
+                    {'pid': 1000, 'name': 'explorer.exe', 'exe': 'explorer.exe', 'status': 'demo'},
+                    {'pid': 2000, 'name': 'notepad.exe', 'exe': 'notepad.exe', 'status': 'demo'}
                 ]
                 processes.extend(demo_processes)
                 print(f"✓ Adicionados {len(demo_processes)} processos de demonstração")
 
-        # Remove duplicatas e ordena
-        seen_pids = set()
-        unique_processes = []
-        for proc in processes:
-            if proc['pid'] not in seen_pids:
-                seen_pids.add(proc['pid'])
-                unique_processes.append(proc)
+            # Remove duplicatas e ordena
+            seen_pids = set()
+            unique_processes = []
+            for proc in processes:
+                if proc['pid'] not in seen_pids:
+                    seen_pids.add(proc['pid'])
+                    unique_processes.append(proc)
 
-        final_processes = sorted(unique_processes, key=lambda x: x['name'].lower())
-        print(f"📋 Total de processos únicos: {len(final_processes)}")
-        
-        return final_processes
+            # Ordena por nome, mas coloca o processo atual no topo
+            import os
+            current_pid = os.getpid()
+            current_processes = [p for p in unique_processes if p['pid'] == current_pid]
+            other_processes = [p for p in unique_processes if p['pid'] != current_pid]
+            other_processes.sort(key=lambda x: x['name'].lower())
+            
+            final_processes = current_processes + other_processes
+            print(f"📋 Total de processos únicos: {len(final_processes)}")
+            
+            return final_processes
+            
+        except Exception as e:
+            print(f"❌ Erro crítico na listagem: {e}")
+            # Retorna pelo menos o processo atual
+            import os
+            return [{'pid': os.getpid(), 'name': 'python.exe', 'exe': 'python.exe', 'status': 'current'}]
 
     def get_memory_regions(self) -> List[Dict[str, Any]]:
         """Obtém regiões de memória do processo"""

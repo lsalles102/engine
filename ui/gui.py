@@ -433,142 +433,150 @@ class ProcessDarkGUI:
         try:
             self.log_message(f"🔗 Iniciando anexação ao processo PID {process_id}...")
 
-            # Verifica se o processo existe
-            process_name = f"PID_{process_id}"
+            # Verifica se o processo existe e obtém informações
+            process_name = f"Process_{process_id}"
+            process_status = "unknown"
+            
             try:
                 import psutil
                 process = psutil.Process(process_id)
                 process_name = process.name()
-                status = process.status()
-                self.log_message(f"✓ Processo encontrado: {process_name} (Status: {status})")
+                process_status = process.status()
+                
+                self.log_message(f"✓ Processo verificado: {process_name} (Status: {process_status})")
 
                 # Verifica se processo não é zombie
-                if status == psutil.STATUS_ZOMBIE:
+                if process_status == psutil.STATUS_ZOMBIE:
                     self.log_message(f"❌ Processo {process_id} é um zombie", "error")
-                    messagebox.showerror("Erro", f"O processo {process_name} (PID: {process_id}) é um processo zombie.\n\nEscolha outro processo.")
+                    messagebox.showerror("Processo Zombie", 
+                        f"O processo {process_name} (PID: {process_id}) é um processo zombie.\n\n" +
+                        "Processos zombie não podem ser anexados.\n" +
+                        "Escolha outro processo da lista.")
                     return
 
             except psutil.NoSuchProcess:
                 self.log_message(f"❌ Processo {process_id} não existe", "error")
-                messagebox.showerror("Erro", f"Processo PID {process_id} não foi encontrado.\n\nO processo pode ter sido encerrado.\nTente atualizar a lista de processos.")
+                messagebox.showerror("Processo Não Encontrado", 
+                    f"O processo PID {process_id} não foi encontrado.\n\n" +
+                    "O processo pode ter sido encerrado.\n" +
+                    "Clique em 'Atualizar Lista' e tente novamente.")
                 return
             except psutil.AccessDenied:
-                self.log_message(f"⚠️ Acesso negado ao processo {process_id}, tentando anexar mesmo assim...", "warning")
+                self.log_message(f"⚠️ Acesso limitado ao processo {process_id}", "warning")
                 process_name = f"Process_{process_id}"
             except Exception as e:
-                self.log_message(f"⚠️ Erro ao verificar processo {process_id}: {e}", "warning")
+                self.log_message(f"⚠️ Erro ao verificar processo: {e}", "warning")
 
-            # Mostra progresso
+            # Mostra progresso da anexação
             self.log_message("🔄 Tentando anexar com diferentes níveis de acesso...")
             self.root.update_idletasks()
+
+            # Desabilita botões durante anexação
+            self.first_scan_btn.configure(state='disabled')
+            self.next_scan_btn.configure(state='disabled')
 
             # Tenta anexar
             anexacao_sucesso = self.memory_manager.attach_to_process(process_id)
 
-            if anexacao_sucesso:
-                # Verifica se realmente anexou
-                anexacao_confirmada = self.memory_manager.is_attached()
-                self.log_message(f"🔍 Verificação de anexação: {anexacao_confirmada}")
+            if anexacao_sucesso and self.memory_manager.is_attached():
+                # SUCESSO - Configura o scanner
+                self.scanner = MemoryScanner(self.memory_manager)
+                self.scanner.set_progress_callback(self.update_scan_progress)
 
-                if anexacao_confirmada and self.memory_manager.process_id == process_id:
-                    # SUCESSO CONFIRMADO
-                    self.scanner = MemoryScanner(self.memory_manager)
-                    self.scanner.set_progress_callback(self.update_scan_progress)
+                # Reativa stealth se estava ativo
+                if self.stealth_enabled:
+                    self.log_message("🥷 Reativando modo stealth...", "stealth")
+                    try:
+                        self.enable_stealth_mode()
+                    except Exception as e:
+                        self.log_message(f"⚠️ Erro ao reativar stealth: {e}", "warning")
 
-                    # Se stealth estiver ativo, recria com stealth
-                    if self.stealth_enabled:
-                        self.log_message("🥷 Reativando modo stealth...", "stealth")
-                        try:
-                            self.enable_stealth_mode()
-                        except:
-                            pass
+                self.log_message(f"✅ ANEXAÇÃO BEM-SUCEDIDA! PID {process_id} ({process_name})", "success")
 
-                    self.log_message(f"✅ ANEXAÇÃO CONFIRMADA! PID {process_id} ({process_name})", "success")
+                # Atualiza interface
+                self.process_info_label.configure(
+                    text=f"✅ PID: {process_id} ({process_name})", 
+                    style='Success.TLabel'
+                )
+                self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
 
-                    # FORÇAR ATUALIZAÇÃO DA INTERFACE IMEDIATAMENTE
-                    self.process_info_label.configure(text=f"✅ PID: {process_id} ({process_name})", style='Success.TLabel')
-                    self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
-
-                    # Força repaint imediato
-                    self.process_info_label.update()
-                    self.status_label.update()
+                # Força atualização visual
+                self.update_interface_state()
+                
+                # Força múltiplas atualizações para garantir
+                for _ in range(3):
+                    self.root.update_idletasks()
                     self.root.update()
 
-                    # Atualiza estado da interface múltiplas vezes
-                    for i in range(5):
-                        self.update_interface_state()
-                        self.root.update_idletasks()
-                        self.root.update()
-                        import time
-                        time.sleep(0.05)
+                self.log_message("✅ Interface atualizada - Pronto para scanning!", "success")
 
-                    self.log_message("✅ Interface atualizada com sucesso!", "success")
+                # Mensagem de sucesso
+                success_msg = f"✅ Processo anexado com sucesso!\n\n"
+                success_msg += f"📋 PID: {process_id}\n"
+                success_msg += f"📝 Nome: {process_name}\n"
+                success_msg += f"🎯 Status: Pronto para scanning\n"
+                
+                if self.stealth_enabled:
+                    success_msg += f"🥷 Modo Stealth: Ativo\n"
+                
+                success_msg += f"\n💡 Agora você pode fazer scans de memória!"
 
-                    # Mensagem de sucesso
-                    success_msg = f"✅ Anexação bem-sucedida!\n\n"
-                    success_msg += f"📋 PID: {process_id}\n"
-                    success_msg += f"📝 Nome: {process_name}\n"
-                    success_msg += f"🔧 Status: Pronto para scan"
-                    if self.stealth_enabled:
-                        success_msg += f"\n🥷 Modo Stealth: Ativo"
+                # Agenda mensagem para não bloquear atualização
+                self.root.after(100, lambda: messagebox.showinfo("Anexação Bem-Sucedida", success_msg))
+                return
 
-                    # Agenda mensagem para depois da atualização da interface
-                    self.root.after(200, lambda: messagebox.showinfo("Anexação Bem-Sucedida", success_msg))
-                    return
+            else:
+                # FALHA na anexação
+                self.log_message(f"❌ FALHA na anexação ao processo {process_id}", "error")
 
-            # Se chegou aqui, anexação falhou
-            self.log_message(f"❌ FALHA na anexação ao processo {process_id}", "error")
+                # Limpa estado
+                self.memory_manager.close()
 
-            # Força limpeza do estado
-            try:
-                self.memory_manager.process_id = None
-                if hasattr(self.memory_manager, 'process_handle'):
-                    self.memory_manager.process_handle = None
-            except:
-                pass
+                # Atualiza interface para estado desanexado
+                self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
+                self.status_label.configure(text="ProcessDark - Pronto")
+                self.update_interface_state()
 
-            # Força atualização da interface para mostrar desanexado
-            self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
-            self.status_label.configure(text="ProcessDark pronto")
-            self.update_interface_state()
+                # Mensagem de erro mais específica
+                error_msg = f"❌ Não foi possível anexar ao processo:\n\n"
+                error_msg += f"📋 PID: {process_id}\n"
+                error_msg += f"📝 Nome: {process_name}\n\n"
+                error_msg += f"🔧 Possíveis causas e soluções:\n\n"
+                error_msg += f"• Execute como Administrador\n"
+                error_msg += f"• Processo pode estar protegido por antivírus\n"
+                error_msg += f"• Processo pode ter permissões especiais\n"
+                error_msg += f"• Tente anexar ao notepad.exe ou calc.exe primeiro\n\n"
+                error_msg += f"💡 Dica: Abra o Bloco de Notas e tente anexar a ele."
 
-            error_msg = f"❌ Falha ao anexar ao processo:\n\n"
-            error_msg += f"📋 PID: {process_id}\n"
-            error_msg += f"📝 Nome: {process_name}\n\n"
-            error_msg += f"🔧 Possíveis soluções:\n\n"
-            error_msg += f"1. ⚡ Execute como administrador\n"
-            error_msg += f"2. 🛡️ Processo pode estar protegido\n"
-            error_msg += f"3. 💻 Processo pode ter encerrado\n"
-            error_msg += f"4. 🔒 Antivírus pode estar bloqueando\n\n"
-            error_msg += f"💡 Tente outro processo ou reinicie como admin."
-
-            messagebox.showerror("Erro de Anexação", error_msg)
+                messagebox.showerror("Falha na Anexação", error_msg)
 
         except Exception as e:
-            self.log_message(f"❌ Erro inesperado ao anexar processo: {e}", "error")
+            self.log_message(f"❌ Erro inesperado ao anexar: {e}", "error")
             import traceback
             traceback.print_exc()
 
-            # Limpa estado em caso de erro
+            # Limpa estado
             try:
-                self.memory_manager.process_id = None
-                if hasattr(self.memory_manager, 'process_handle'):
-                    self.memory_manager.process_handle = None
+                self.memory_manager.close()
             except:
                 pass
 
             # Força interface para estado desanexado
             self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
-            self.status_label.configure(text="ProcessDark pronto")
+            self.status_label.configure(text="ProcessDark - Erro")
             self.update_interface_state()
 
-            error_msg = f"❌ Erro inesperado durante anexação:\n\n{e}\n\n"
+            error_msg = f"❌ Erro inesperado durante anexação:\n\n{str(e)[:200]}\n\n"
             error_msg += f"🔧 Tente:\n"
-            error_msg += f"1. Reiniciar o ProcessDark\n"
-            error_msg += f"2. Executar como administrador\n"
-            error_msg += f"3. Escolher outro processo"
+            error_msg += f"• Reiniciar o ProcessDark\n"
+            error_msg += f"• Executar como administrador\n"
+            error_msg += f"• Escolher outro processo"
 
             messagebox.showerror("Erro Inesperado", error_msg)
+        
+        finally:
+            # Sempre reabilita botões no final
+            self.update_interface_state()
 
     def detach_process(self):
         """Desanexa do processo atual"""
