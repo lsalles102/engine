@@ -382,6 +382,35 @@ class MemoryManager:
         except Exception as e:
             print(f"Erro ao fechar conexões: {e}")
 
+    def get_process_info(self) -> Dict[str, Any]:
+        """Retorna informações do processo anexado"""
+        if not self.is_attached():
+            return {}
+        
+        info = {
+            'process_id': self.process_id,
+            'attached': True,
+            'platform': platform.system()
+        }
+        
+        # Adiciona nome do processo se disponível
+        try:
+            import psutil
+            process = psutil.Process(self.process_id)
+            info['process_name'] = process.name()
+            info['memory_usage'] = process.memory_info().rss
+            info['cpu_percent'] = process.cpu_percent()
+        except:
+            info['process_name'] = f"PID_{self.process_id}"
+        
+        return info
+    
+    @property
+    def process_name(self) -> str:
+        """Propriedade para obter nome do processo"""
+        info = self.get_process_info()
+        return info.get('process_name', f"PID_{self.process_id}")
+
     def __del__(self):
         """Destrutor para garantir limpeza de recursos"""
         try:
