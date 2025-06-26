@@ -268,14 +268,14 @@ def run_web_demo():
         print("• Compatível com qualquer navegador")
         print("\nAguarde enquanto o servidor web é iniciado...")
 
-        # Executa o web demo completo
-        os.system("python web_demo_completo.py")
-
+        # Executa o web demo
+        import web_demo
+        
     except KeyboardInterrupt:
         print("\n\nDemo web interrompido pelo usuário.")
     except Exception as e:
         print(f"\nErro no demo web: {e}")
-        print("Tente executar diretamente: python web_demo_completo.py")
+        print("Tente executar diretamente: python web_demo.py")
 
 def check_dependencies():
     """Verifica se as dependências estão instaladas"""
@@ -420,24 +420,26 @@ def show_main_menu() -> str:
     menu = """
 Escolha uma opção:
 
-1. Scanner de Memória
-2. Resolução de Ponteiros
-3. Editar Valor na Memória
-4. Anexar a um Processo
-5. Detalhes do Processo
-6. Busca AOB (Array of Bytes)
-7. ViewMatrix Scanner
-8. Sair
---------------------------------------------------
+[1] Interface Gráfica (GUI) - Recomendado para usuários iniciantes
+[2] Interface de Linha de Comando (CLI) - Para usuários avançados
+[3] Demo Web Interativo - Funciona perfeitamente no Replit
+[4] Mostrar informações do sistema
+[5] Verificar privilégios
+[6] Ajuda
+[0] Sair
+
 """
     print(menu)
 
     while True:
-        choice = input("Digite sua opção (1-8): ").strip()
-        if choice in ['1', '2', '3', '4', '5', '6', '7', '8']:
-            return choice
-        else:
-            print("Opção inválida. Digite um número entre 1 e 8.")
+        try:
+            choice = input("Digite sua opção (0-6): ").strip()
+            if choice in ['0', '1', '2', '3', '4', '5', '6']:
+                return choice
+            else:
+                print("Opção inválida. Digite um número entre 0 e 6.")
+        except (EOFError, KeyboardInterrupt):
+            return '0'
 
 # Adicionando a função handle_viewmatrix_scanner
 def handle_viewmatrix_scanner():
@@ -926,24 +928,28 @@ def main_loop():
     while True:
         choice = show_main_menu()
 
-        if choice == "1":
-            handle_memory_scan()
-        elif choice == "2":
-            handle_pointer_resolve()
-        elif choice == "3":
-            handle_edit_value()
-        elif choice == "4":
-            handle_attach_process()
-        elif choice == "5":
-            handle_process_details()
-        elif choice == "6":
-            handle_aob_scan()
-        elif choice == "7":
-            handle_viewmatrix_scanner()
-        elif choice == "8":
+        if choice == '0':
+            print("\nObrigado por usar o PyCheatEngine!")
             break
-        else:
-            print("❌ Opção inválida")
+        elif choice == '1':
+            run_gui()
+        elif choice == '2':
+            run_cli()
+        elif choice == '3':
+            run_web_demo()
+        elif choice == '4':
+            show_system_info()
+        elif choice == '5':
+            is_admin = check_admin_privileges()
+            print(f"\nPrivilégios Administrativos: {'✓ Sim' if is_admin else '✗ Não'}")
+            if not is_admin:
+                print("Execute o programa como administrador para melhor funcionalidade.")
+        elif choice == '6':
+            show_help()
+
+        # Pausa antes de mostrar o menu novamente
+        if choice != '0':
+            input("\nPressione Enter para continuar...")
 
 if __name__ == "__main__":
     # Define o título da janela do console no Windows
