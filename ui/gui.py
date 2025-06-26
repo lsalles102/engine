@@ -430,47 +430,87 @@ class PyCheatEngineGUI:
     def attach_to_process(self, process_id: int):
         """Anexa a um processo"""
         try:
-            self.log_message(f"Tentando anexar ao processo {process_id}...")
+            self.log_message(f"🔗 Iniciando anexação ao processo PID {process_id}...")
 
             # Verifica se o processo existe
+            process_name = f"PID_{process_id}"
             try:
                 import psutil
                 process = psutil.Process(process_id)
                 process_name = process.name()
-                self.log_message(f"Processo encontrado: {process_name}")
+                status = process.status()
+                self.log_message(f"✓ Processo encontrado: {process_name} (Status: {status})")
+                
+                # Verifica se processo não é zombie
+                if status == psutil.STATUS_ZOMBIE:
+                    self.log_message(f"❌ Processo {process_id} é um zombie", "error")
+                    messagebox.showerror("Erro", f"O processo {process_name} (PID: {process_id}) é um processo zombie.\n\nEscolha outro processo.")
+                    return
+                    
             except psutil.NoSuchProcess:
-                self.log_message(f"Processo {process_id} não existe", "error")
-                messagebox.showerror("Erro", f"Processo {process_id} não foi encontrado.")
+                self.log_message(f"❌ Processo {process_id} não existe", "error")
+                messagebox.showerror("Erro", f"Processo PID {process_id} não foi encontrado.\n\nO processo pode ter sido encerrado.\nTente atualizar a lista de processos.")
                 return
             except psutil.AccessDenied:
-                self.log_message(f"Acesso negado ao processo {process_id}", "warning")
+                self.log_message(f"⚠️ Acesso negado ao processo {process_id}, tentando anexar mesmo assim...", "warning")
+                process_name = f"Process_{process_id}"
+            except Exception as e:
+                self.log_message(f"⚠️ Erro ao verificar processo {process_id}: {e}", "warning")
+
+            # Mostra progresso
+            self.log_message("🔄 Tentando anexar com diferentes níveis de acesso...")
 
             if self.memory_manager.attach_to_process(process_id):
+                # Sucesso na anexação
                 self.scanner = MemoryScanner(self.memory_manager)
                 self.scanner.set_progress_callback(self.update_scan_progress)
 
                 # Se stealth estiver ativo, recria com stealth
                 if self.stealth_enabled:
+                    self.log_message("🥷 Reativando modo stealth...", "stealth")
                     self.enable_stealth_mode()
 
-                self.log_message(f"✅ Anexado com sucesso ao processo {process_id} ({process_name})", "success")
+                self.log_message(f"✅ SUCESSO! Anexado ao processo {process_id} ({process_name})", "success")
                 self.update_interface_state()
                 
-                # Feedback visual
-                messagebox.showinfo("Sucesso", f"Anexado ao processo:\n{process_name} (PID: {process_id})")
+                # Feedback visual de sucesso
+                success_msg = f"✅ Anexação bem-sucedida!\n\n"
+                success_msg += f"📋 PID: {process_id}\n"
+                success_msg += f"📝 Nome: {process_name}\n"
+                success_msg += f"🔧 Status: Pronto para scan"
+                if self.stealth_enabled:
+                    success_msg += f"\n🥷 Modo Stealth: Ativo"
+                
+                messagebox.showinfo("Anexação Bem-Sucedida", success_msg)
                 
             else:
-                error_msg = f"Falha ao anexar ao processo {process_id}. Possíveis causas:\n"
-                error_msg += "• Execute como administrador\n"
-                error_msg += "• Processo pode estar protegido\n"
-                error_msg += "• Processo pode ter encerrado"
+                # Falha na anexação
+                self.log_message(f"❌ FALHA ao anexar ao processo {process_id}", "error")
                 
-                self.log_message(f"❌ Falha ao anexar ao processo {process_id}", "error")
+                error_msg = f"❌ Falha ao anexar ao processo:\n\n"
+                error_msg += f"📋 PID: {process_id}\n"
+                error_msg += f"📝 Nome: {process_name}\n\n"
+                error_msg += f"🔧 Possíveis soluções:\n\n"
+                error_msg += f"1. ⚡ Execute como administrador\n"
+                error_msg += f"2. 🛡️ Processo pode estar protegido\n"
+                error_msg += f"3. 💻 Processo pode ter encerrado\n"
+                error_msg += f"4. 🔒 Antivírus pode estar bloqueando\n\n"
+                error_msg += f"💡 Tente outro processo ou reinicie como admin."
+                
                 messagebox.showerror("Erro de Anexação", error_msg)
 
         except Exception as e:
-            self.log_message(f"❌ Erro ao anexar processo: {e}", "error")
-            messagebox.showerror("Erro", f"Erro inesperado ao anexar processo:\n{e}")
+            self.log_message(f"❌ Erro inesperado ao anexar processo: {e}", "error")
+            import traceback
+            traceback.print_exc()
+            
+            error_msg = f"❌ Erro inesperado durante anexação:\n\n{e}\n\n"
+            error_msg += f"🔧 Tente:\n"
+            error_msg += f"1. Reiniciar o PyCheatEngine\n"
+            error_msg += f"2. Executar como administrador\n"
+            error_msg += f"3. Escolher outro processo"
+            
+            messagebox.showerror("Erro Inesperado", error_msg)
 
     def detach_process(self):
         """Desanexa do processo atual"""
@@ -1005,32 +1045,45 @@ class ProcessSelectionDialog:
         button_frame = ttk.Frame(self.dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
-        ttk.Button(button_frame, text="🔄 Atualizar Lista", command=self.refresh_processes, style='Dark.TButton').pack(side=tk.LEFT, padx=(0, 5))
+        # Botões da esquerda
+        left_buttons = ttk.Frame(button_frame)
+        left_buttons.pack(side=tk.LEFT)
+        
+        ttk.Button(left_buttons, text="🔄 Atualizar Lista", command=self.refresh_processes, style='Dark.TButton').pack(side=tk.LEFT, padx=(0, 5))
         
         # Botões da direita
         right_buttons = ttk.Frame(button_frame)
         right_buttons.pack(side=tk.RIGHT)
         
         ttk.Button(right_buttons, text="❌ Cancelar", command=self.dialog.destroy, style='Dark.TButton').pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(right_buttons, text="🔗 Anexar Processo", command=self.select_process, style='Dark.TButton').pack(side=tk.RIGHT, padx=(5, 0))
+        self.attach_button = ttk.Button(right_buttons, text="🔗 Anexar Processo", command=self.select_process, style='Dark.TButton', state='disabled')
+        self.attach_button.pack(side=tk.RIGHT, padx=(5, 0))
         
-        # Instrução para o usuário
+        # Instruções para o usuário
         instruction_frame = ttk.Frame(self.dialog)
         instruction_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
         
-        instruction_label = ttk.Label(instruction_frame, 
-                                    text="💡 Dica: Duplo clique em um processo para anexar rapidamente", 
-                                    style='Dark.TLabel', 
-                                    font=('Arial', 8))
-        instruction_label.pack()
+        instructions = [
+            "💡 Como anexar a um processo:",
+            "   1. Clique em um processo da lista para selecioná-lo",
+            "   2. Clique no botão 'Anexar Processo' OU dê duplo clique",
+            "   3. Confirme a anexação na janela que aparecer",
+            "",
+            "⚠️ Importante: Execute como administrador para melhor compatibilidade"
+        ]
+        
+        for instruction in instructions:
+            label = ttk.Label(instruction_frame, text=instruction, style='Dark.TLabel', font=('Arial', 8))
+            label.pack(anchor=tk.W)
 
         # Carrega processos
         self.memory_manager = memory_manager
         self.refresh_processes()
 
-        # Bind eventos - corrige duplo clique
+        # Bind eventos - corrige duplo clique e seleção
         self.tree.bind('<Double-1>', self.on_double_click)
         self.tree.bind('<Return>', lambda e: self.select_process())
+        self.tree.bind('<Button-1>', self.on_single_click)
 
     def refresh_processes(self):
         """Atualiza lista de processos"""
@@ -1117,7 +1170,7 @@ class ProcessSelectionDialog:
         """Seleciona processo para anexar"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Aviso", "Selecione um processo!")
+            messagebox.showwarning("Aviso", "Selecione um processo da lista!")
             return
 
         try:
@@ -1130,32 +1183,65 @@ class ProcessSelectionDialog:
                 return
             
             # Verifica se o primeiro valor é um PID válido
-            pid_str = str(values[0])
+            pid_str = str(values[0]).strip()
             if pid_str == "..." or pid_str == "" or not pid_str.isdigit():
-                messagebox.showwarning("Aviso", "Selecione um processo válido!")
+                messagebox.showwarning("Aviso", "Selecione um processo válido!\n\nDica: Clique em um processo da lista primeiro.")
                 return
             
             pid = int(pid_str)
-            process_name = str(values[1])
+            process_name = str(values[1]).strip()
             
             print(f"✓ Processo selecionado: PID {pid} - {process_name}")
             
-            # Confirma seleção
-            confirm = messagebox.askyesno(
-                "Confirmar Anexação", 
-                f"Deseja anexar ao processo:\n\nPID: {pid}\nNome: {process_name}\n\nConfirmar?"
-            )
+            # Confirma seleção com mais informações
+            confirm_msg = f"Confirmar anexação ao processo:\n\n"
+            confirm_msg += f"📋 PID: {pid}\n"
+            confirm_msg += f"📝 Nome: {process_name}\n\n"
+            confirm_msg += f"⚠️ Certifique-se de que você tem permissão para anexar a este processo.\n\n"
+            confirm_msg += f"Prosseguir com a anexação?"
+            
+            confirm = messagebox.askyesno("Confirmar Anexação", confirm_msg)
             
             if confirm:
+                print(f"✓ Usuário confirmou anexação ao PID {pid}")
                 self.result = pid
                 self.dialog.destroy()
+            else:
+                print("❌ Usuário cancelou anexação")
             
         except (ValueError, IndexError, TypeError) as e:
             print(f"❌ Erro ao selecionar processo: {e}")
-            messagebox.showerror("Erro", f"Erro ao processar seleção:\n{e}\n\nTente selecionar outro processo.")
+            messagebox.showerror("Erro", f"Erro ao processar seleção:\n{e}\n\nTente:\n1. Selecionar outro processo\n2. Atualizar a lista\n3. Executar como administrador")
         except Exception as e:
             print(f"❌ Erro inesperado: {e}")
             messagebox.showerror("Erro", f"Erro inesperado:\n{e}")
+
+    def on_single_click(self, event):
+        """Manipula clique simples para seleção"""
+        try:
+            item = self.tree.identify('item', event.x, event.y)
+            if item:
+                self.tree.selection_set(item)
+                # Habilita botão de anexar se há seleção válida
+                self.update_attach_button_state()
+        except Exception as e:
+            print(f"❌ Erro na seleção: {e}")
+    
+    def update_attach_button_state(self):
+        """Atualiza estado do botão anexar baseado na seleção"""
+        try:
+            selection = self.tree.selection()
+            if selection:
+                item = self.tree.item(selection[0])
+                values = item['values']
+                if values and len(values) >= 2 and str(values[0]).isdigit():
+                    self.attach_button.configure(state='normal')
+                else:
+                    self.attach_button.configure(state='disabled')
+            else:
+                self.attach_button.configure(state='disabled')
+        except:
+            self.attach_button.configure(state='disabled')
 
     def on_double_click(self, event):
         """Manipula duplo clique na lista de processos"""
@@ -1165,7 +1251,7 @@ class ProcessSelectionDialog:
             if item:
                 # Seleciona o item
                 self.tree.selection_set(item)
-                # Executa anexação
+                # Executa anexação automaticamente
                 self.select_process()
         except Exception as e:
             print(f"❌ Erro no duplo clique: {e}")
