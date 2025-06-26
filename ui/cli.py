@@ -22,10 +22,14 @@ except ImportError as e:
     print(f"Erro ao importar módulos: {e}")
     sys.exit(1)
 
-class CheatEngineCLI:
+class PyCheatEngineCLI:
     """Interface de linha de comando para PyCheatEngine"""
     
-    def __init__(self):
+    def __init__(self, memory_manager=None):
+        if memory_manager:
+            self.memory_manager = memory_manager
+        else:
+            self.memory_manager = MemoryManager()
         self.memory_manager = MemoryManager()
         self.scanner = MemoryScanner(self.memory_manager)
         self.pointer_resolver = PointerResolver(self.memory_manager)
@@ -538,7 +542,7 @@ Exemplos:
 
 def main():
     """Função principal da CLI"""
-    cli = CheatEngineCLI()
+    cli = PyCheatEngineCLI()
     try:
         cli.run()
     except KeyboardInterrupt:
