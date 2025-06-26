@@ -460,6 +460,9 @@ class PyCheatEngineGUI:
             # Mostra progresso
             self.log_message("🔄 Tentando anexar com diferentes níveis de acesso...")
 
+            # Força atualização da interface antes da anexação
+            self.root.update_idletasks()
+
             if self.memory_manager.attach_to_process(process_id):
                 # Sucesso na anexação
                 self.scanner = MemoryScanner(self.memory_manager)
@@ -471,7 +474,11 @@ class PyCheatEngineGUI:
                     self.enable_stealth_mode()
 
                 self.log_message(f"✅ SUCESSO! Anexado ao processo {process_id} ({process_name})", "success")
+                
+                # FORÇA atualização da interface IMEDIATAMENTE
                 self.update_interface_state()
+                self.root.update_idletasks()
+                self.root.update()
                 
                 # Feedback visual de sucesso
                 success_msg = f"✅ Anexação bem-sucedida!\n\n"
@@ -483,8 +490,12 @@ class PyCheatEngineGUI:
                 
                 messagebox.showinfo("Anexação Bem-Sucedida", success_msg)
                 
+                # Atualiza interface mais uma vez após o dialog
+                self.update_interface_state()
+                
             else:
-                # Falha na anexação
+                # Falha na anexação - força atualização para mostrar erro
+                self.update_interface_state()
                 self.log_message(f"❌ FALHA ao anexar ao processo {process_id}", "error")
                 
                 error_msg = f"❌ Falha ao anexar ao processo:\n\n"
@@ -503,6 +514,9 @@ class PyCheatEngineGUI:
             self.log_message(f"❌ Erro inesperado ao anexar processo: {e}", "error")
             import traceback
             traceback.print_exc()
+            
+            # Força atualização da interface em caso de erro
+            self.update_interface_state()
             
             error_msg = f"❌ Erro inesperado durante anexação:\n\n{e}\n\n"
             error_msg += f"🔧 Tente:\n"
@@ -904,21 +918,50 @@ class PyCheatEngineGUI:
 
     def update_interface_state(self):
         """Atualiza estado da interface"""
+        print(f"🔄 Atualizando interface state...")
+        
         attached = self.memory_manager and self.memory_manager.is_attached()
+        print(f"   - Memory manager: {self.memory_manager is not None}")
+        print(f"   - Is attached: {attached}")
 
         # Atualiza informações do processo
         if attached:
-            process_info = f"PID: {self.memory_manager.process_id}"
-            self.process_info_label.configure(text=process_info, style='Success.TLabel')
-            self.status_label.configure(text=f"Anexado ao processo {self.memory_manager.process_id}")
+            try:
+                # Tenta obter nome do processo
+                process_name = "Unknown"
+                try:
+                    import psutil
+                    process = psutil.Process(self.memory_manager.process_id)
+                    process_name = process.name()
+                except:
+                    process_name = f"Process_{self.memory_manager.process_id}"
+                
+                process_info = f"PID: {self.memory_manager.process_id} ({process_name})"
+                print(f"   - Process info: {process_info}")
+                
+                self.process_info_label.configure(text=process_info, style='Success.TLabel')
+                self.status_label.configure(text=f"✅ Anexado ao processo {self.memory_manager.process_id}")
+                
+                print("✅ Interface atualizada - processo anexado")
+                
+            except Exception as e:
+                print(f"⚠️ Erro ao atualizar info do processo: {e}")
+                process_info = f"PID: {self.memory_manager.process_id}"
+                self.process_info_label.configure(text=process_info, style='Success.TLabel')
+                self.status_label.configure(text=f"✅ Anexado ao processo {self.memory_manager.process_id}")
         else:
-            self.process_info_label.configure(text="Nenhum processo anexado", style='Error.TLabel')
+            print("   - Nenhum processo anexado")
+            self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
             self.status_label.configure(text="PyCheatEngine pronto")
 
         # Atualiza botões
         scan_enabled = attached and not self.is_scanning
         self.first_scan_btn.configure(state='normal' if scan_enabled else 'disabled')
         self.next_scan_btn.configure(state='normal' if (scan_enabled and self.scan_results) else 'disabled')
+
+        # Força atualização visual
+        self.root.update_idletasks()
+        print(f"🔄 Atualização da interface concluída")
 
     def update_stealth_display(self):
         """Atualiza exibição do status stealth"""

@@ -122,6 +122,9 @@ class MemoryManager:
             # Se chegou aqui, anexação foi bem-sucedida
             self.process_id = process_id
             print(f"🎯 Anexado com sucesso ao processo {process_id}!")
+            print(f"   - Process ID armazenado: {self.process_id}")
+            print(f"   - Process handle: {self.process_handle if IS_WINDOWS else 'Linux mode'}")
+            print(f"   - Is attached: {self.is_attached()}")
             
             # Teste básico de leitura para confirmar
             try:
@@ -133,6 +136,7 @@ class MemoryManager:
             except:
                 print("⚠️ Não foi possível fazer teste de leitura")
             
+            print(f"✅ Anexação CONFIRMADA para PID {process_id}")
             return True
 
         except Exception as e:
