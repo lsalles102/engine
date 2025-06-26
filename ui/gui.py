@@ -493,36 +493,50 @@ class ProcessDarkGUI:
 
                 self.log_message(f"✅ ANEXAÇÃO BEM-SUCEDIDA! PID {process_id} ({process_name})", "success")
 
-                # Atualiza interface
-                self.process_info_label.configure(
-                    text=f"✅ PID: {process_id} ({process_name})", 
-                    style='Success.TLabel'
-                )
-                self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
-
-                # Força atualização visual
-                self.update_interface_state()
-                
-                # Força múltiplas atualizações para garantir
-                for _ in range(3):
+                # Atualiza interface IMEDIATAMENTE - múltiplas tentativas
+                def force_interface_update():
+                    # Atualiza labels principais
+                    self.process_info_label.configure(
+                        text=f"✅ PID: {process_id} ({process_name})", 
+                        style='Success.TLabel'
+                    )
+                    self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
+                    
+                    # Força repaint imediato
+                    self.process_info_label.update()
+                    self.status_label.update()
+                    
+                    # Atualiza estado dos botões
+                    self.first_scan_btn.configure(state='normal')
+                    self.first_scan_btn.update()
+                    
+                    # Força atualização completa do root
                     self.root.update_idletasks()
                     self.root.update()
 
+                # Executa atualização múltiplas vezes
+                for i in range(5):
+                    force_interface_update()
+                    self.root.after(i * 10, force_interface_update)
+
+                # Log de confirmação
                 self.log_message("✅ Interface atualizada - Pronto para scanning!", "success")
 
-                # Mensagem de sucesso
-                success_msg = f"✅ Processo anexado com sucesso!\n\n"
-                success_msg += f"📋 PID: {process_id}\n"
-                success_msg += f"📝 Nome: {process_name}\n"
-                success_msg += f"🎯 Status: Pronto para scanning\n"
-                
-                if self.stealth_enabled:
-                    success_msg += f"🥷 Modo Stealth: Ativo\n"
-                
-                success_msg += f"\n💡 Agora você pode fazer scans de memória!"
+                # Mensagem de sucesso (agenda para depois da atualização)
+                def show_success_message():
+                    success_msg = f"✅ Processo anexado com sucesso!\n\n"
+                    success_msg += f"📋 PID: {process_id}\n"
+                    success_msg += f"📝 Nome: {process_name}\n"
+                    success_msg += f"🎯 Status: Pronto para scanning\n"
+                    
+                    if self.stealth_enabled:
+                        success_msg += f"🥷 Modo Stealth: Ativo\n"
+                    
+                    success_msg += f"\n💡 Agora você pode fazer scans de memória!"
+                    messagebox.showinfo("Anexação Bem-Sucedida", success_msg)
 
-                # Agenda mensagem para não bloquear atualização
-                self.root.after(100, lambda: messagebox.showinfo("Anexação Bem-Sucedida", success_msg))
+                # Agenda mensagem após todas as atualizações
+                self.root.after(200, show_success_message)
                 return
 
             else:
@@ -969,24 +983,21 @@ class ProcessDarkGUI:
         self.log_message("Resultados atualizados", "success")
 
     def update_interface_state(self):
-        """Atualiza estado da interface"""
-        print(f"🔄 Atualizando interface state...")
+        """Atualiza estado da interface com força bruta"""
+        print(f"🔄 FORÇANDO atualização da interface...")
 
-        # Verificação mais rigorosa do estado de anexação
+        # Verificação rigorosa do estado
         attached = False
         if self.memory_manager is not None:
             attached = (self.memory_manager.process_id is not None and 
                        self.memory_manager.is_attached())
 
-        print(f"   - Memory manager existe: {self.memory_manager is not None}")
-        if self.memory_manager:
-            print(f"   - Process ID: {self.memory_manager.process_id}")
-            print(f"   - Is attached: {attached}")
+        print(f"   - Anexado: {attached}")
+        print(f"   - PID: {self.memory_manager.process_id if self.memory_manager else None}")
 
-        # Atualiza informações do processo
         if attached:
+            # PROCESSO ANEXADO - atualiza interface
             try:
-                # Tenta obter nome do processo
                 process_name = "Unknown"
                 try:
                     import psutil
@@ -998,74 +1009,77 @@ class ProcessDarkGUI:
                 process_info = f"✅ PID: {self.memory_manager.process_id} ({process_name})"
                 status_info = f"✅ Anexado ao processo {self.memory_manager.process_id}"
 
-                print(f"   - Process info: {process_info}")
-                print(f"   - Status info: {status_info}")
+                print(f"   - Definindo: {process_info}")
 
-                # FORÇA a atualização dos labels MÚLTIPLAS VEZES
-                for i in range(3):
+                # FORÇA ATUALIZAÇÃO COM MÚLTIPLAS ESTRATÉGIAS
+                def force_update():
+                    # Estratégia 1: Configure + update
                     self.process_info_label.configure(text=process_info, style='Success.TLabel')
                     self.status_label.configure(text=status_info)
+                    self.process_info_label.update()
+                    self.status_label.update()
+                    
+                    # Estratégia 2: Botões
+                    self.first_scan_btn.configure(state='normal')
+                    self.first_scan_btn.update()
+                    
+                    # Estratégia 3: Root update
+                    self.root.update_idletasks()
+                    self.root.update()
 
-                    # Força repaint imediato a cada iteração
+                # Executa 10 vezes com delays
+                for i in range(10):
                     try:
-                        self.process_info_label.update()
-                        self.status_label.update()
-                        self.root.update_idletasks()
-                    except:
-                        pass
+                        force_update()
+                        if i < 5:  # Primeiras 5 vezes com delay
+                            self.root.after(i * 5, force_update)
+                    except Exception as e:
+                        print(f"Erro na iteração {i}: {e}")
 
-                print("✅ Interface atualizada - processo anexado")
+                print("✅ FORÇADA atualização para ANEXADO")
 
             except Exception as e:
-                print(f"⚠️ Erro ao atualizar info do processo: {e}")
-                # Fallback com informação mínima
-                process_info = f"✅ PID: {self.memory_manager.process_id}"
-                status_info = f"✅ Anexado ao processo {self.memory_manager.process_id}"
+                print(f"❌ Erro na atualização: {e}")
+                # Fallback simples
+                self.process_info_label.configure(text=f"✅ PID: {self.memory_manager.process_id}", style='Success.TLabel')
+                self.status_label.configure(text=f"✅ Anexado")
+                self.process_info_label.update()
+                self.status_label.update()
 
-                self.process_info_label.configure(text=process_info, style='Success.TLabel')
-                self.status_label.configure(text=status_info)
-
-                try:
-                    self.process_info_label.update()
-                    self.status_label.update()
-                except:
-                    pass
         else:
-            print("   - Nenhum processo anexado")
-
-            # FORÇA estado desanexado MÚLTIPLAS VEZES
-            for i in range(3):
+            # NENHUM PROCESSO - limpa interface
+            print("   - Limpando interface (nenhum processo)")
+            
+            def clear_interface():
                 self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
                 self.status_label.configure(text="ProcessDark pronto")
+                self.first_scan_btn.configure(state='disabled')
+                self.next_scan_btn.configure(state='disabled')
+                
+                self.process_info_label.update()
+                self.status_label.update()
+                self.first_scan_btn.update()
+                self.next_scan_btn.update()
+                
+                self.root.update_idletasks()
+                self.root.update()
 
-                # Força repaint imediato
+            # Executa limpeza múltiplas vezes
+            for i in range(5):
                 try:
-                    self.process_info_label.update()
-                    self.status_label.update()
-                    self.root.update_idletasks()
+                    clear_interface()
                 except:
                     pass
 
-        # Atualiza botões baseado no estado
-        scan_enabled = attached and not self.is_scanning
-
+        # ATUALIZAÇÃO FINAL FORÇADA
         try:
-            self.first_scan_btn.configure(state='normal' if scan_enabled else 'disabled')
-            self.next_scan_btn.configure(state='normal' if (scan_enabled and self.scan_results) else 'disabled')
+            for _ in range(3):
+                self.root.update_idletasks()
+                self.root.update()
         except:
             pass
 
-        # Múltiplas atualizações visuais forçadas
-        for i in range(3):
-            try:
-                self.root.update_idletasks()
-                self.root.update()
-            except:
-                pass
-
-        print(f"🔄 Atualização da interface concluída - Status: {'ANEXADO' if attached else 'DESANEXADO'}")
-
-        # Retorna o estado para verificação externa
+        print(f"🔄 ATUALIZAÇÃO COMPLETA - Status final: {'ANEXADO' if attached else 'DESANEXADO'}")
         return attached
 
     def update_stealth_display(self):
