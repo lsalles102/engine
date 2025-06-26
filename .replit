@@ -5,7 +5,7 @@ run = "python main.py"
 channel = "stable-24_05"
 
 [workflows]
-runButton = "Run PyCheatEngine"
+runButton = "Run ProcessDark"
 
 [[workflows.workflow]]
 name = "Run PyCheatEngine"
@@ -37,6 +37,19 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py --gui"
+
+[[workflows.workflow]]
+name = "Run ProcessDark"
+author = 44305159
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install psutil"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
 
 [[ports]]
 localPort = 5000

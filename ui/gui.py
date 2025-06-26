@@ -63,7 +63,7 @@ class PyCheatEngineGUI:
         """Verifica e alerta sobre privilégios administrativos"""
         import platform
         import ctypes
-        
+
         try:
             if platform.system() == 'Windows':
                 is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
@@ -71,11 +71,11 @@ class PyCheatEngineGUI:
                 is_admin = os.geteuid() == 0
         except:
             is_admin = False
-            
+
         if not is_admin:
             # Mostra aviso na interface
             self.show_admin_warning()
-    
+
     def show_admin_warning(self):
         """Mostra aviso sobre privilégios administrativos"""
         def show_warning():
@@ -88,24 +88,24 @@ class PyCheatEngineGUI:
                 "• Clique 'Não' para continuar (funcionalidade limitada)",
                 icon='warning'
             )
-            
+
             if result:
                 self.request_admin_and_restart()
-        
+
         # Agenda para depois da inicialização
         self.root.after(1000, show_warning)
-    
+
     def request_admin_and_restart(self):
         """Solicita privilégios administrativos e reinicia"""
         try:
             import platform
             import ctypes
             import sys
-            
+
             if platform.system() == "Windows":
                 # Reconstrói argumentos
                 args = ' '.join(sys.argv)
-                
+
                 # Executa como administrador
                 ctypes.windll.shell32.ShellExecuteW(
                     None, 
@@ -115,7 +115,7 @@ class PyCheatEngineGUI:
                     None, 
                     1
                 )
-                
+
                 # Fecha a instância atual
                 self.root.quit()
                 sys.exit(0)
@@ -216,7 +216,7 @@ class PyCheatEngineGUI:
 
         self.create_results_frame(right_frame)
 
-    def create_process_frame(self, parent):
+    def create_process_frame(self, self, parent):
         """Cria frame de processo"""
         process_frame = ttk.LabelFrame(parent, text="Processo", style='Dark.TFrame')
         process_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
@@ -394,7 +394,7 @@ class PyCheatEngineGUI:
         status_frame = ttk.Frame(self.root, style='Dark.TFrame')
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
-        self.status_label = ttk.Label(status_frame, text="PyCheatEngine pronto", style='Dark.TLabel')
+        self.status_label = ttk.Label(status_frame, text="ProcessDark pronto", style='Dark.TLabel')
         self.status_label.pack(side=tk.LEFT, padx=5, pady=2)
 
         # Status stealth na barra
@@ -441,13 +441,13 @@ class PyCheatEngineGUI:
                 process_name = process.name()
                 status = process.status()
                 self.log_message(f"✓ Processo encontrado: {process_name} (Status: {status})")
-                
+
                 # Verifica se processo não é zombie
                 if status == psutil.STATUS_ZOMBIE:
                     self.log_message(f"❌ Processo {process_id} é um zombie", "error")
                     messagebox.showerror("Erro", f"O processo {process_name} (PID: {process_id}) é um processo zombie.\n\nEscolha outro processo.")
                     return
-                    
+
             except psutil.NoSuchProcess:
                 self.log_message(f"❌ Processo {process_id} não existe", "error")
                 messagebox.showerror("Erro", f"Processo PID {process_id} não foi encontrado.\n\nO processo pode ter sido encerrado.\nTente atualizar a lista de processos.")
@@ -464,12 +464,12 @@ class PyCheatEngineGUI:
 
             # Tenta anexar
             anexacao_sucesso = self.memory_manager.attach_to_process(process_id)
-            
+
             if anexacao_sucesso:
                 # Verifica se realmente anexou
                 anexacao_confirmada = self.memory_manager.is_attached()
                 self.log_message(f"🔍 Verificação de anexação: {anexacao_confirmada}")
-                
+
                 if anexacao_confirmada and self.memory_manager.process_id == process_id:
                     # SUCESSO CONFIRMADO
                     self.scanner = MemoryScanner(self.memory_manager)
@@ -484,16 +484,16 @@ class PyCheatEngineGUI:
                             pass
 
                     self.log_message(f"✅ ANEXAÇÃO CONFIRMADA! PID {process_id} ({process_name})", "success")
-                    
+
                     # FORÇAR ATUALIZAÇÃO DA INTERFACE IMEDIATAMENTE
                     self.process_info_label.configure(text=f"✅ PID: {process_id} ({process_name})", style='Success.TLabel')
                     self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
-                    
+
                     # Força repaint imediato
                     self.process_info_label.update()
                     self.status_label.update()
                     self.root.update()
-                    
+
                     # Atualiza estado da interface múltiplas vezes
                     for i in range(5):
                         self.update_interface_state()
@@ -501,9 +501,9 @@ class PyCheatEngineGUI:
                         self.root.update()
                         import time
                         time.sleep(0.05)
-                    
+
                     self.log_message("✅ Interface atualizada com sucesso!", "success")
-                    
+
                     # Mensagem de sucesso
                     success_msg = f"✅ Anexação bem-sucedida!\n\n"
                     success_msg += f"📋 PID: {process_id}\n"
@@ -511,14 +511,14 @@ class PyCheatEngineGUI:
                     success_msg += f"🔧 Status: Pronto para scan"
                     if self.stealth_enabled:
                         success_msg += f"\n🥷 Modo Stealth: Ativo"
-                    
+
                     # Agenda mensagem para depois da atualização da interface
                     self.root.after(200, lambda: messagebox.showinfo("Anexação Bem-Sucedida", success_msg))
                     return
-                    
+
             # Se chegou aqui, anexação falhou
             self.log_message(f"❌ FALHA na anexação ao processo {process_id}", "error")
-            
+
             # Força limpeza do estado
             try:
                 self.memory_manager.process_id = None
@@ -526,12 +526,12 @@ class PyCheatEngineGUI:
                     self.memory_manager.process_handle = None
             except:
                 pass
-            
+
             # Força atualização da interface para mostrar desanexado
             self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
-            self.status_label.configure(text="PyCheatEngine pronto")
+            self.status_label.configure(text="ProcessDark pronto")
             self.update_interface_state()
-            
+
             error_msg = f"❌ Falha ao anexar ao processo:\n\n"
             error_msg += f"📋 PID: {process_id}\n"
             error_msg += f"📝 Nome: {process_name}\n\n"
@@ -541,14 +541,14 @@ class PyCheatEngineGUI:
             error_msg += f"3. 💻 Processo pode ter encerrado\n"
             error_msg += f"4. 🔒 Antivírus pode estar bloqueando\n\n"
             error_msg += f"💡 Tente outro processo ou reinicie como admin."
-            
+
             messagebox.showerror("Erro de Anexação", error_msg)
 
         except Exception as e:
             self.log_message(f"❌ Erro inesperado ao anexar processo: {e}", "error")
             import traceback
             traceback.print_exc()
-            
+
             # Limpa estado em caso de erro
             try:
                 self.memory_manager.process_id = None
@@ -556,18 +556,18 @@ class PyCheatEngineGUI:
                     self.memory_manager.process_handle = None
             except:
                 pass
-            
+
             # Força interface para estado desanexado
             self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
-            self.status_label.configure(text="PyCheatEngine pronto")
+            self.status_label.configure(text="ProcessDark pronto")
             self.update_interface_state()
-            
+
             error_msg = f"❌ Erro inesperado durante anexação:\n\n{e}\n\n"
             error_msg += f"🔧 Tente:\n"
             error_msg += f"1. Reiniciar o PyCheatEngine\n"
             error_msg += f"2. Executar como administrador\n"
             error_msg += f"3. Escolher outro processo"
-            
+
             messagebox.showerror("Erro Inesperado", error_msg)
 
     def detach_process(self):
@@ -963,13 +963,13 @@ class PyCheatEngineGUI:
     def update_interface_state(self):
         """Atualiza estado da interface"""
         print(f"🔄 Atualizando interface state...")
-        
+
         # Verificação mais rigorosa do estado de anexação
         attached = False
         if self.memory_manager is not None:
             attached = (self.memory_manager.process_id is not None and 
                        self.memory_manager.is_attached())
-        
+
         print(f"   - Memory manager existe: {self.memory_manager is not None}")
         if self.memory_manager:
             print(f"   - Process ID: {self.memory_manager.process_id}")
@@ -986,18 +986,18 @@ class PyCheatEngineGUI:
                     process_name = process.name()
                 except:
                     process_name = f"Process_{self.memory_manager.process_id}"
-                
+
                 process_info = f"✅ PID: {self.memory_manager.process_id} ({process_name})"
                 status_info = f"✅ Anexado ao processo {self.memory_manager.process_id}"
-                
+
                 print(f"   - Process info: {process_info}")
                 print(f"   - Status info: {status_info}")
-                
+
                 # FORÇA a atualização dos labels MÚLTIPLAS VEZES
                 for i in range(3):
                     self.process_info_label.configure(text=process_info, style='Success.TLabel')
                     self.status_label.configure(text=status_info)
-                    
+
                     # Força repaint imediato a cada iteração
                     try:
                         self.process_info_label.update()
@@ -1005,18 +1005,18 @@ class PyCheatEngineGUI:
                         self.root.update_idletasks()
                     except:
                         pass
-                
+
                 print("✅ Interface atualizada - processo anexado")
-                
+
             except Exception as e:
                 print(f"⚠️ Erro ao atualizar info do processo: {e}")
                 # Fallback com informação mínima
                 process_info = f"✅ PID: {self.memory_manager.process_id}"
                 status_info = f"✅ Anexado ao processo {self.memory_manager.process_id}"
-                
+
                 self.process_info_label.configure(text=process_info, style='Success.TLabel')
                 self.status_label.configure(text=status_info)
-                
+
                 try:
                     self.process_info_label.update()
                     self.status_label.update()
@@ -1024,12 +1024,12 @@ class PyCheatEngineGUI:
                     pass
         else:
             print("   - Nenhum processo anexado")
-            
+
             # FORÇA estado desanexado MÚLTIPLAS VEZES
             for i in range(3):
                 self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
-                self.status_label.configure(text="PyCheatEngine pronto")
-                
+                self.status_label.configure(text="ProcessDark pronto")
+
                 # Força repaint imediato
                 try:
                     self.process_info_label.update()
@@ -1040,7 +1040,7 @@ class PyCheatEngineGUI:
 
         # Atualiza botões baseado no estado
         scan_enabled = attached and not self.is_scanning
-        
+
         try:
             self.first_scan_btn.configure(state='normal' if scan_enabled else 'disabled')
             self.next_scan_btn.configure(state='normal' if (scan_enabled and self.scan_results) else 'disabled')
@@ -1054,9 +1054,9 @@ class PyCheatEngineGUI:
                 self.root.update()
             except:
                 pass
-            
+
         print(f"🔄 Atualização da interface concluída - Status: {'ANEXADO' if attached else 'DESANEXADO'}")
-        
+
         # Retorna o estado para verificação externa
         return attached
 
@@ -1075,27 +1075,27 @@ class PyCheatEngineGUI:
         """Atualiza informações do processo"""
         self.update_interface_state()
         self.log_message("Informações do processo atualizadas", "info")
-    
+
     def test_attachment(self):
         """Testa o estado atual da anexação"""
         self.log_message("🧪 Testando estado da anexação...", "info")
-        
+
         if self.memory_manager:
             self.log_message(f"Memory Manager: {'OK' if self.memory_manager else 'NONE'}", "info")
             self.log_message(f"Process ID: {self.memory_manager.process_id}", "info")
             self.log_message(f"Is Attached: {self.memory_manager.is_attached()}", "info")
-            
+
             if hasattr(self.memory_manager, 'process_handle'):
                 self.log_message(f"Process Handle: {'OK' if self.memory_manager.process_handle else 'NONE'}", "info")
-            
+
             # Força atualização da interface
             self.update_interface_state()
-            
+
             # Tenta anexar ao próprio processo como teste
             import os
             current_pid = os.getpid()
             self.log_message(f"Testando anexação ao processo atual (PID {current_pid})...", "info")
-            
+
             if self.memory_manager.attach_to_process(current_pid):
                 self.log_message("✅ Teste de anexação: SUCESSO", "success")
                 self.update_interface_state()
@@ -1216,21 +1216,21 @@ class ProcessSelectionDialog:
         # Botões da esquerda
         left_buttons = ttk.Frame(button_frame)
         left_buttons.pack(side=tk.LEFT)
-        
+
         ttk.Button(left_buttons, text="🔄 Atualizar Lista", command=self.refresh_processes, style='Dark.TButton').pack(side=tk.LEFT, padx=(0, 5))
-        
+
         # Botões da direita
         right_buttons = ttk.Frame(button_frame)
         right_buttons.pack(side=tk.RIGHT)
-        
+
         ttk.Button(right_buttons, text="❌ Cancelar", command=self.dialog.destroy, style='Dark.TButton').pack(side=tk.RIGHT, padx=(5, 0))
         self.attach_button = ttk.Button(right_buttons, text="🔗 Anexar Processo", command=self.select_process, style='Dark.TButton', state='disabled')
         self.attach_button.pack(side=tk.RIGHT, padx=(5, 0))
-        
+
         # Instruções para o usuário
         instruction_frame = ttk.Frame(self.dialog)
         instruction_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
-        
+
         instructions = [
             "💡 Como anexar a um processo:",
             "   1. Clique em um processo da lista para selecioná-lo",
@@ -1239,7 +1239,7 @@ class ProcessSelectionDialog:
             "",
             "⚠️ Importante: Execute como administrador para melhor compatibilidade"
         ]
-        
+
         for instruction in instructions:
             label = ttk.Label(instruction_frame, text=instruction, style='Dark.TLabel', font=('Arial', 8))
             label.pack(anchor=tk.W)
@@ -1266,10 +1266,10 @@ class ProcessSelectionDialog:
         try:
             print("🔄 Atualizando lista de processos...")
             processes = self.memory_manager.list_processes()
-            
+
             # Remove item de carregamento
             self.tree.delete(loading_item)
-            
+
             if not processes:
                 self.tree.insert('', tk.END, values=("", "❌ Nenhum processo encontrado"))
                 messagebox.showwarning("Aviso", 
@@ -1279,58 +1279,58 @@ class ProcessSelectionDialog:
                     "• Verifique se há processos rodando\n" +
                     "• Tente reiniciar o PyCheatEngine")
                 return
-                
+
             print(f"✓ Carregando {len(processes)} processos na lista...")
-            
+
             # Adiciona processos à lista
             for proc in processes:
                 try:
                     # Cria nome de exibição
                     name_display = proc['name']
-                    
+
                     # Adiciona informações extras se disponíveis
                     extras = []
-                    
+
                     if 'exe' in proc and proc['exe'] not in ['Unknown', 'Access Denied', '']:
                         exe_path = proc['exe']
                         if '\\' in exe_path:
                             exe_name = exe_path.split('\\')[-1]
                         else:
                             exe_name = exe_path
-                        
+
                         if exe_name != proc['name']:
                             extras.append(exe_name)
-                    
+
                     if 'status' in proc and proc['status'] != 'unknown':
                         extras.append(proc['status'])
-                    
+
                     if extras:
                         name_display += f" ({', '.join(extras)})"
-                    
+
                     # Adiciona à árvore com valores corretos
                     self.tree.insert('', tk.END, values=(proc['pid'], name_display))
-                    
+
                 except Exception as e:
                     print(f"⚠️ Erro ao processar processo {proc.get('pid', '?')}: {e}")
                     continue
-                
+
             print(f"✅ Lista atualizada com {len(processes)} processos")
-            
+
         except Exception as e:
             # Remove item de carregamento se ainda estiver lá
             try:
                 self.tree.delete(loading_item)
             except:
                 pass
-                
+
             self.tree.insert('', tk.END, values=("", f"❌ Erro: {str(e)[:50]}..."))
-            
+
             error_msg = f"Erro ao listar processos: {e}\n\n"
             error_msg += "Soluções:\n"
             error_msg += "• Execute como administrador\n"
             error_msg += "• Feche outros programas que possam interferir\n"
             error_msg += "• Reinicie o sistema se necessário"
-            
+
             print(f"❌ Erro na listagem: {e}")
             messagebox.showerror("Erro na Listagem", error_msg)
 
@@ -1344,39 +1344,39 @@ class ProcessSelectionDialog:
         try:
             item = self.tree.item(selection[0])
             values = item['values']
-            
+
             # Verifica se é um item válido
             if not values or len(values) < 2:
                 messagebox.showwarning("Aviso", "Item selecionado inválido!")
                 return
-            
+
             # Verifica se o primeiro valor é um PID válido
             pid_str = str(values[0]).strip()
             if pid_str == "..." or pid_str == "" or not pid_str.isdigit():
                 messagebox.showwarning("Aviso", "Selecione um processo válido!\n\nDica: Clique em um processo da lista primeiro.")
                 return
-            
+
             pid = int(pid_str)
             process_name = str(values[1]).strip()
-            
+
             print(f"✓ Processo selecionado: PID {pid} - {process_name}")
-            
+
             # Confirma seleção com mais informações
             confirm_msg = f"Confirmar anexação ao processo:\n\n"
             confirm_msg += f"📋 PID: {pid}\n"
             confirm_msg += f"📝 Nome: {process_name}\n\n"
             confirm_msg += f"⚠️ Certifique-se de que você tem permissão para anexar a este processo.\n\n"
             confirm_msg += f"Prosseguir com a anexação?"
-            
+
             confirm = messagebox.askyesno("Confirmar Anexação", confirm_msg)
-            
+
             if confirm:
                 print(f"✓ Usuário confirmou anexação ao PID {pid}")
                 self.result = pid
                 self.dialog.destroy()
             else:
                 print("❌ Usuário cancelou anexação")
-            
+
         except (ValueError, IndexError, TypeError) as e:
             print(f"❌ Erro ao selecionar processo: {e}")
             messagebox.showerror("Erro", f"Erro ao processar seleção:\n{e}\n\nTente:\n1. Selecionar outro processo\n2. Atualizar a lista\n3. Executar como administrador")
@@ -1394,7 +1394,7 @@ class ProcessSelectionDialog:
                 self.update_attach_button_state()
         except Exception as e:
             print(f"❌ Erro na seleção: {e}")
-    
+
     def update_attach_button_state(self):
         """Atualiza estado do botão anexar baseado na seleção"""
         try:
@@ -1645,7 +1645,7 @@ class ViewMatrixScannerDialog:
 
         try:
             candidates = self.viewmatrix_scanner.scan_for_viewmatrix()
-            
+
             if candidates:
                 self.log(f"✅ Encontrados {len(candidates)} candidatos")
                 for addr in candidates[:20]:  # Limita exibição
@@ -1693,10 +1693,10 @@ class ViewMatrixScannerDialog:
                 start_addr = int(start_var.get(), 16)
                 end_addr = int(end_var.get(), 16)
                 range_dialog.destroy()
-                
+
                 self.log(f"🔍 Buscando entre 0x{start_addr:X} e 0x{end_addr:X}...")
                 candidates = self.viewmatrix_scanner.scan_for_viewmatrix((start_addr, end_addr))
-                
+
                 if candidates:
                     self.log(f"✅ Encontrados {len(candidates)} candidatos no range")
                     self.results_listbox.delete(0, tk.END)
@@ -1704,7 +1704,7 @@ class ViewMatrixScannerDialog:
                         self.results_listbox.insert(tk.END, f"0x{addr:X}")
                 else:
                     self.log("❌ Nenhuma ViewMatrix encontrada no range")
-                    
+
             except ValueError:
                 self.log("❌ Endereços inválidos")
                 range_dialog.destroy()
@@ -1725,19 +1725,19 @@ class ViewMatrixScannerDialog:
 
         try:
             addr = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str, 16)
-            
+
             matrix = self.viewmatrix_scanner.read_viewmatrix(addr)
             if matrix and matrix.is_valid():
                 cam_pos = matrix.get_camera_position()
                 self.log(f"✅ ViewMatrix válida em 0x{addr:X}")
                 self.log(f"📍 Posição da câmera: ({cam_pos[0]:.3f}, {cam_pos[1]:.3f}, {cam_pos[2]:.3f})")
-                
+
                 # Adiciona aos resultados
                 result_text = f"0x{addr:X} - Manual - Câmera: ({cam_pos[0]:.2f}, {cam_pos[1]:.2f}, {cam_pos[2]:.2f})"
                 self.results_listbox.insert(tk.END, result_text)
             else:
                 self.log(f"❌ ViewMatrix inválida em 0x{addr:X}")
-                
+
         except ValueError:
             self.log("❌ Endereço inválido")
 
@@ -1746,7 +1746,7 @@ class ViewMatrixScannerDialog:
         selection = self.results_listbox.curselection()
         if not selection:
             return
-            
+
         item = self.results_listbox.get(selection[0])
         # Extrai endereço do texto
         addr_str = item.split()[0]

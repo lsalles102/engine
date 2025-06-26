@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-PyCheatEngine - Sistema de Engenharia Reversa e Manipulação de Memória
+ProcessDark - Sistema de Engenharia Reversa e Manipulação de Memória
 Arquivo principal de inicialização do programa
 
-Este é o ponto de entrada principal do PyCheatEngine, oferecendo opções para
+Este é o ponto de entrada principal do ProcessDark, oferecendo opções para
 executar tanto a interface gráfica quanto a interface de linha de comando.
 
 Autor: PyCheatEngine Team
@@ -62,7 +62,7 @@ def show_banner():
     """Exibe o banner do programa"""
     banner = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                              PyCheatEngine v1.0.0                           ║
+║                              ProcessDark v1.0.0                           ║
 ║                    Sistema de Engenharia Reversa e Manipulação              ║
 ║                              de Memória em Python                           ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
@@ -607,14 +607,14 @@ def run_gui():
             print("Para anexar processos, execute como administrador.\n")
         else:
             print("✅ Executando com privilégios administrativos")
-        
+
         print("Inicializando interface gráfica...")
         print("Aguarde enquanto a janela é carregada...")
-        
-        from ui.gui import PyCheatEngineGUI
-        app = PyCheatEngineGUI()
+
+        from ui.gui import ProcessDarkGUI
+        app = ProcessDarkGUI()
         app.run()
-        
+
     except ImportError as e:
         print(f"❌ Erro ao importar GUI: {e}")
         print("Algumas dependências podem estar faltando.")
@@ -629,7 +629,7 @@ def run_cli():
         from ui.cli import PyCheatEngineCLI
         cli = PyCheatEngineCLI(memory_manager)
         cli.run()
-        
+
     except ImportError as e:
         print(f"❌ Erro ao importar CLI: {e}")
     except Exception as e:
@@ -642,10 +642,10 @@ def run_web_demo():
     try:
         print("🌐 Iniciando demo web...")
         print("O demo será executado em http://0.0.0.0:5000")
-        
+
         from web_demo import app
         app.run(host='0.0.0.0', port=5000, debug=True)
-        
+
     except ImportError as e:
         print(f"❌ Erro ao importar web demo: {e}")
     except Exception as e:
@@ -659,14 +659,14 @@ def run_stealth_mode():
         print("🥷 MODO STEALTH PYCHEATENGINE")
         print("=" * 50)
         print("Funcionalidades anti-detecção e evasão ativadas")
-        
+
         from stealth import create_stealth_memory_manager, demo_stealth_capabilities
         from stealth_config import get_stealth_config, apply_preset, STEALTH_PRESETS
-        
+
         # Cria gerenciador stealth
         global memory_manager
         memory_manager = create_stealth_memory_manager()
-        
+
         # Menu stealth
         while True:
             print("\n🥷 MENU STEALTH")
@@ -679,12 +679,12 @@ def run_stealth_mode():
             print("[6] Scanner stealth")
             print("[7] Anti-debug monitor")
             print("[8] Voltar ao menu principal")
-            
+
             choice = input("\nEscolha uma opção (1-8): ").strip()
-            
+
             if choice == '1':
                 demo_stealth_capabilities()
-                
+
             elif choice == '2':
                 config = get_stealth_config()
                 current_level = config.get_stealth_level()
@@ -696,7 +696,7 @@ def run_stealth_mode():
                 print("3 - Avançado (+ camuflagem)")
                 print("4 - Alto (+ evasão de API)")
                 print("5 - Máximo (todas as técnicas)")
-                
+
                 try:
                     new_level = int(input("Novo nível (0-5): ").strip())
                     if 0 <= new_level <= 5:
@@ -707,12 +707,12 @@ def run_stealth_mode():
                         print("❌ Nível inválido")
                 except ValueError:
                     print("❌ Digite um número válido")
-                    
+
             elif choice == '3':
                 print("\nPresets disponíveis:")
                 for i, preset_name in enumerate(STEALTH_PRESETS.keys(), 1):
                     print(f"{i}. {preset_name}")
-                
+
                 try:
                     preset_choice = int(input("Escolha um preset (1-4): ").strip())
                     preset_names = list(STEALTH_PRESETS.keys())
@@ -724,12 +724,12 @@ def run_stealth_mode():
                         print("❌ Opção inválida")
                 except ValueError:
                     print("❌ Digite um número válido")
-                    
+
             elif choice == '4':
                 print("\n🔧 MODO DRIVER - MÁXIMO STEALTH")
                 print("Este modo usa um driver virtual para máxima evasão")
                 print("⚠️ Funcionalidade experimental")
-                
+
                 confirm = input("Ativar modo driver? (y/n): ").lower()
                 if confirm == 'y':
                     memory_manager.enable_driver_mode(True)
@@ -737,11 +737,11 @@ def run_stealth_mode():
                 else:
                     memory_manager.enable_driver_mode(False)
                     print("❌ Modo driver desativado")
-                    
+
             elif choice == '5':
                 config = get_stealth_config()
                 config.print_current_config()
-                
+
                 # Status do memory manager
                 if hasattr(memory_manager, 'get_stealth_status'):
                     status = memory_manager.get_stealth_status()
@@ -749,20 +749,20 @@ def run_stealth_mode():
                     print(f"Stealth Ativo: {'SIM' if status.get('stealth_enabled') else 'NÃO'}")
                     print(f"Modo Driver: {'SIM' if status.get('driver_mode') else 'NÃO'}")
                     print(f"Anti-Debug: {'SIM' if status.get('anti_debug_active') else 'NÃO'}")
-                    
+
             elif choice == '6':
                 if not memory_manager.is_attached():
                     print("❌ Anexe a um processo primeiro")
                     handle_attach_process()
                     continue
-                
+
                 print("\n🔍 SCANNER STEALTH")
                 try:
                     target_value = int(input("Valor a buscar: ").strip())
                     data_type = input("Tipo de dado (int32/float): ").strip() or "int32"
-                    
+
                     print("🥷 Iniciando scan stealth...")
-                    
+
                     if hasattr(memory_manager, 'scan_for_value_driver'):
                         results = memory_manager.scan_for_value_driver(target_value, data_type)
                     else:
@@ -770,9 +770,9 @@ def run_stealth_mode():
                         from scanner import MemoryScanner, DataType, ScanType
                         scanner = MemoryScanner(memory_manager)
                         results = scanner.first_scan(target_value, DataType(data_type), ScanType.EXACT)
-                    
+
                     print(f"✅ Scan stealth concluído: {len(results)} resultados")
-                    
+
                     if results:
                         print("Primeiros 5 resultados:")
                         for i, result in enumerate(results[:5]):
@@ -783,47 +783,47 @@ def run_stealth_mode():
                                 addr = result.address
                                 val = result.value
                             print(f"  {i+1}. 0x{addr:08X} = {val}")
-                            
+
                 except ValueError:
                     print("❌ Valor inválido")
                 except Exception as e:
                     print(f"❌ Erro no scan: {e}")
-                    
+
             elif choice == '7':
                 print("\n🛡️ MONITOR ANTI-DEBUG")
                 print("Monitorando debuggers, VMs e sandboxes...")
                 print("Pressione Ctrl+C para parar")
-                
+
                 try:
                     from stealth import AntiDebugger
                     anti_debug = AntiDebugger()
-                    
+
                     def debug_callback():
                         print("\n⚠️ AMEAÇA DETECTADA!")
-                        
+
                     anti_debug.add_debug_callback(debug_callback)
                     anti_debug.start_monitoring()
-                    
+
                     try:
                         while True:
                             time.sleep(1)
                     except KeyboardInterrupt:
                         print("\n⏹️ Monitoramento parado")
                         anti_debug.stop_monitoring()
-                        
+
                 except Exception as e:
                     print(f"❌ Erro no monitor: {e}")
-                    
+
             elif choice == '8':
                 print("Voltando ao menu principal...")
                 break
-                
+
             else:
                 print("❌ Opção inválida")
-            
+
             if choice != '8':
                 input("\nPressione Enter para continuar...")
-                
+
     except ImportError as e:
         print(f"❌ Erro ao importar módulos stealth: {e}")
         print("Verifique se todos os arquivos stealth estão presentes")
@@ -836,12 +836,12 @@ def show_system_info():
     """Mostra informações do sistema"""
     print("\n💻 INFORMAÇÕES DO SISTEMA")
     print("=" * 50)
-    
+
     print(f"Sistema Operacional: {platform.system()} {platform.release()}")
     print(f"Arquitetura: {platform.machine()}")
     print(f"Processador: {platform.processor()}")
     print(f"Python: {platform.python_version()}")
-    
+
     # Informações de memória se psutil estiver disponível
     try:
         import psutil
@@ -849,13 +849,13 @@ def show_system_info():
         print(f"Memória Total: {memory.total / (1024**3):.1f} GB")
         print(f"Memória Disponível: {memory.available / (1024**3):.1f} GB")
         print(f"Uso de Memória: {memory.percent}%")
-        
+
         cpu_count = psutil.cpu_count()
         print(f"CPUs: {cpu_count}")
-        
+
     except ImportError:
         print("psutil não disponível - informações limitadas")
-    
+
     # Verifica privilégios
     is_admin = check_admin_privileges()
     print(f"Privilégios Admin: {'✓ Sim' if is_admin else '✗ Não'}")
@@ -863,7 +863,7 @@ def show_system_info():
 def show_help():
     """Mostra ajuda e instruções"""
     help_text = """
-📚 AJUDA - PYCHEATENGINE
+📚 AJUDA - ProcessDark
 
 🎯 FUNCIONALIDADES PRINCIPAIS:
 • Scanner de memória para diferentes tipos de dados
@@ -914,7 +914,7 @@ def request_admin_and_restart():
             print("🔄 Solicitando privilégios administrativos...")
             # Reconstrói os argumentos da linha de comando
             args = ' '.join(sys.argv)
-            
+
             # Executa novamente como administrador
             ctypes.windll.shell32.ShellExecuteW(
                 None, 
@@ -933,7 +933,7 @@ def request_admin_and_restart():
         print("Execute o programa com 'sudo' para obter privilégios administrativos:")
         print(f"sudo python3 {sys.argv[0]}")
         return False
-    
+
     return True
 
 def main_loop():
@@ -942,7 +942,7 @@ def main_loop():
     if not check_admin_privileges():
         print("⚠️  AVISO: Executando sem privilégios administrativos!")
         print("Para anexar processos corretamente, privilégios administrativos são necessários.")
-        
+
         choice = input("\nDeseja executar como administrador? (y/n): ").lower().strip()
         if choice == 'y' or choice == 'yes':
             if request_admin_and_restart():
@@ -958,7 +958,7 @@ def main_loop():
         choice = show_main_menu()
 
         if choice == '0':
-            print("\nObrigado por usar o PyCheatEngine!")
+            print("\nObrigado por usar o ProcessDark!")
             break
         elif choice == '1':
             run_gui()
@@ -986,7 +986,7 @@ if __name__ == "__main__":
     # Define o título da janela do console no Windows
     if platform.system() == "Windows":
         try:
-            ctypes.windll.kernel32.SetConsoleTitleW("PyCheatEngine v1.0.0")
+            ctypes.windll.kernel32.SetConsoleTitleW("ProcessDark v1.0.0")
         except:
             pass
 
@@ -997,4 +997,4 @@ if __name__ == "__main__":
     # Inicia o laço principal
     main_loop()
 
-    print("\n👋 Obrigado por usar o PyCheatEngine!")
+    print("\n👋 Obrigado por usar o ProcessDark!")
