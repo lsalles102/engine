@@ -149,11 +149,93 @@ class MemoryScanner:
         except (OverflowError, ValueError, struct.error, TypeError, OSError):
             return None
 
-    def _compare_values(self, current_value: Any, target_value: Any, 
-                       scan_type: ScanType, previous_value: Any = None) -> bool:
+    def _compare_values(self, previous_value: Any, current_value: Any, 
+                       target_value: Any, scan_type: ScanType) -> bool:
         """
         Compara valores baseado no tipo de scan
-        Esta função é usada apenas no first_scan para comparações simples
+        Esta versão funciona para next_scan
+        """
+        try:
+            # Validação básica
+            if current_value is None:
+                return False
+
+            # Validação de overflow para valores numéricos
+            if isinstance(current_value, (int, float)):
+                if abs(current_value) > 1e15:
+                    return False
+
+            if scan_type == ScanType.EXACT:
+                if target_value is None:
+                    return False
+                return current_value == target_value
+
+            elif scan_type == ScanType.INCREASED:
+                if previous_value is None:
+                    return False
+                try:
+                    return current_value > previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.DECREASED:
+                if previous_value is None:
+                    return False
+                try:
+                    return current_value < previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.CHANGED:
+                if previous_value is None:
+                    return False
+                try:
+                    return current_value != previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.UNCHANGED:
+                if previous_value is None:
+                    return False
+                try:
+                    return current_value == previous_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.GREATER_THAN:
+                if target_value is None:
+                    return False
+                try:
+                    return current_value > target_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.LESS_THAN:
+                if target_value is None:
+                    return False
+                try:
+                    return current_value < target_value
+                except (TypeError, OverflowError):
+                    return False
+
+            elif scan_type == ScanType.BETWEEN:
+                if not isinstance(target_value, (list, tuple)) or len(target_value) != 2:
+                    return False
+                try:
+                    return target_value[0] <= current_value <= target_value[1]
+                except (TypeError, OverflowError):
+                    return False
+
+            return False
+
+        except Exception as e:
+            print(f"[COMPARE ERROR] Erro na comparação: {e}")
+            return False
+
+    def _compare_values_for_first_scan(self, current_value: Any, target_value: Any, 
+                                      scan_type: ScanType) -> bool:
+        """
+        Compara valores baseado no tipo de scan para FIRST SCAN
         """
         try:
             # Validação básica
@@ -167,7 +249,7 @@ class MemoryScanner:
                 if target_value is not None and isinstance(target_value, (int, float)) and abs(target_value) > 1e15:
                     return False
 
-            # Para first_scan, normalmente só usamos EXACT
+            # Para first_scan
             if scan_type == ScanType.EXACT:
                 if target_value is None:
                     return False
@@ -200,7 +282,7 @@ class MemoryScanner:
             return False
 
         except Exception as e:
-            print(f"[COMPARE ERROR] Erro na comparação: {e}")
+            print(f"[COMPARE ERROR] Erro na comparação first_scan: {e}")
             return False
 
     def _compare_values_for_next_scan(self, previous_value: Any, current_value: Any, 
@@ -353,9 +435,11 @@ class MemoryScanner:
 
                 if current_value is not None:
                     print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={result.value}, atual={current_value}")
-                    # Atualiza o valor no resultado
-                    result.previous_value = result.value  # Salva valor anterior
-                    result.value = current_value  # Atualiza com valor atual
+                    # Salva valor anterior ANTES de atualizar
+                    if not hasattr(result, 'previous_value') or result.previous_value is None:
+                        result.previous_value = result.value
+                    # Atualiza com valor atual
+                    result.value = current_value
 
             # PASSO 2: Agora filtra com base nos valores atualizados
             print(f"[NEXT_SCAN] Passo 2: Filtrando resultados...")
@@ -368,14 +452,20 @@ class MemoryScanner:
                     progress = 50 + (i / len(self.scan_results)) * 50
                     self.progress_callback(progress)
 
-                # Verifica se tem valor anterior salvo
-                previous_val = result.previous_value if hasattr(result, 'previous_value') and result.previous_value is not None else result.value
+                # Usa valores corretos para comparação
+                # previous_value já foi definido na primeira parte
+                previous_val = result.previous_value
                 current_val = result.value
+                
+                if previous_val is None:
+                    print(f"[NEXT_SCAN] SKIP - Endereço 0x{result.address:X}: valor anterior é None")
+                    continue
 
-                print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={previous_val}, atual={current_val}, procurado={value}, match={self._compare_values(previous_val, current_val, value, scan_type)}")
-
+                print(f"[NEXT_SCAN] Endereço 0x{result.address:X}: anterior={previous_val}, atual={current_val}, procurado={value}")
+                
                 # Aplica filtro baseado no tipo de scan
                 match = self._compare_values(previous_val, current_val, value, scan_type)
+                print(f"[NEXT_SCAN] Match: {match} (tipo: {scan_type.value})")
 
                 if match:
                     filtered_results.append(result)
@@ -483,7 +573,7 @@ class MemoryScanner:
                                     elif data_type in [DataType.FLOAT, DataType.DOUBLE] and abs(current_value) > 1e308:
                                         continue
 
-                            if self._compare_values(current_value, value, scan_type):
+                            if self._compare_values_for_first_scan(current_value, value, scan_type):
                                 result = ScanResult(address, current_value, data_type)
                                 self.scan_results.append(result)
 
