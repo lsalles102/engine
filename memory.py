@@ -291,18 +291,59 @@ class MemoryManager:
         """Lista todos os processos em execução"""
         processes = []
         try:
-            for proc in psutil.process_iter(['pid', 'name']):
+            for proc in psutil.process_iter(['pid', 'name', 'exe']):
                 try:
-                    processes.append({
-                        'pid': proc.info['pid'],
-                        'name': proc.info['name']
-                    })
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    proc_info = proc.info
+                    if proc_info['name'] and proc_info['pid'] > 0:
+                        processes.append({
+                            'pid': proc_info['pid'],
+                            'name': proc_info['name'] or f"Process_{proc_info['pid']}",
+                            'exe': proc_info.get('exe', 'Unknown')
+                        })
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
+                except Exception:
+                    # Para processos que não conseguimos acessar, adiciona com informações básicas
+                    try:
+                        processes.append({
+                            'pid': proc.pid,
+                            'name': f"Process_{proc.pid}",
+                            'exe': 'Access Denied'
+                        })
+                    except:
+                        continue
         except Exception as e:
             print(f"Erro ao listar processos: {e}")
+            # Fallback: tenta listar pelo menos alguns processos do sistema
+            try:
+                import os
+                if IS_WINDOWS:
+                    result = os.popen('tasklist /fo csv').read()
+                    lines = result.split('\n')[1:]  # Skip header
+                    for line in lines:
+                        if line.strip():
+                            parts = line.replace('"', '').split(',')
+                            if len(parts) >= 2:
+                                try:
+                                    processes.append({
+                                        'pid': int(parts[1]),
+                                        'name': parts[0],
+                                        'exe': parts[0]
+                                    })
+                                except:
+                                    continue
+            except:
+                pass
 
-        return sorted(processes, key=lambda x: x['name'].lower())
+        # Remove duplicatas e ordena
+        seen_pids = set()
+        unique_processes = []
+        for proc in processes:
+            if proc['pid'] not in seen_pids:
+                seen_pids.add(proc['pid'])
+                unique_processes.append(proc)
+
+        return sorted(unique_processes, key=lambda x: x['name'].lower())
 
     def get_memory_regions(self) -> List[Dict[str, Any]]:
         """Obtém regiões de memória do processo"""

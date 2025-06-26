@@ -354,6 +354,19 @@ class PyCheatEngineGUI:
         try:
             self.log_message(f"Tentando anexar ao processo {process_id}...")
 
+            # Verifica se o processo existe
+            try:
+                import psutil
+                process = psutil.Process(process_id)
+                process_name = process.name()
+                self.log_message(f"Processo encontrado: {process_name}")
+            except psutil.NoSuchProcess:
+                self.log_message(f"Processo {process_id} não existe", "error")
+                messagebox.showerror("Erro", f"Processo {process_id} não foi encontrado.")
+                return
+            except psutil.AccessDenied:
+                self.log_message(f"Acesso negado ao processo {process_id}", "warning")
+
             if self.memory_manager.attach_to_process(process_id):
                 self.scanner = MemoryScanner(self.memory_manager)
                 self.scanner.set_progress_callback(self.update_scan_progress)
@@ -362,13 +375,24 @@ class PyCheatEngineGUI:
                 if self.stealth_enabled:
                     self.enable_stealth_mode()
 
-                self.log_message(f"Anexado com sucesso ao processo {process_id}", "success")
+                self.log_message(f"✅ Anexado com sucesso ao processo {process_id} ({process_name})", "success")
                 self.update_interface_state()
+                
+                # Feedback visual
+                messagebox.showinfo("Sucesso", f"Anexado ao processo:\n{process_name} (PID: {process_id})")
+                
             else:
-                self.log_message(f"Falha ao anexar ao processo {process_id}", "error")
+                error_msg = f"Falha ao anexar ao processo {process_id}. Possíveis causas:\n"
+                error_msg += "• Execute como administrador\n"
+                error_msg += "• Processo pode estar protegido\n"
+                error_msg += "• Processo pode ter encerrado"
+                
+                self.log_message(f"❌ Falha ao anexar ao processo {process_id}", "error")
+                messagebox.showerror("Erro de Anexação", error_msg)
 
         except Exception as e:
-            self.log_message(f"Erro ao anexar processo: {e}", "error")
+            self.log_message(f"❌ Erro ao anexar processo: {e}", "error")
+            messagebox.showerror("Erro", f"Erro inesperado ao anexar processo:\n{e}")
 
     def detach_process(self):
         """Desanexa do processo atual"""
@@ -923,10 +947,20 @@ class ProcessSelectionDialog:
         # Carrega processos
         try:
             processes = self.memory_manager.list_processes()
+            if not processes:
+                messagebox.showwarning("Aviso", "Nenhum processo encontrado. Execute como administrador.")
+                return
+                
             for proc in processes:
-                self.tree.insert('', tk.END, values=(proc['pid'], proc['name']))
+                # Adiciona informação extra se disponível
+                name_display = proc['name']
+                if 'exe' in proc and proc['exe'] != 'Unknown' and proc['exe'] != 'Access Denied':
+                    name_display += f" ({proc['exe'].split('\\')[-1] if '\\' in proc['exe'] else proc['exe']})"
+                
+                self.tree.insert('', tk.END, values=(proc['pid'], name_display))
+                
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao listar processos: {e}")
+            messagebox.showerror("Erro", f"Erro ao listar processos: {e}\n\nTente executar como administrador.")
 
     def select_process(self):
         """Seleciona processo"""
@@ -1052,17 +1086,237 @@ class ViewMatrixScannerDialog:
 
     def __init__(self, parent, memory_manager):
         self.memory_manager = memory_manager
+        self.viewmatrix_scanner = None
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("ViewMatrix Scanner")
-        self.dialog.geometry("500x400")
+        self.dialog.geometry("600x500")
         self.dialog.configure(bg='#2b2b2b')
+        self.dialog.transient(parent)
 
-        frame = ttk.Frame(self.dialog)
-        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        if memory_manager and memory_manager.is_attached():
+            try:
+                from viewmatrix import ViewMatrixScanner
+                self.viewmatrix_scanner = ViewMatrixScanner(memory_manager)
+            except ImportError:
+                pass
 
-        ttk.Label(frame, text="ViewMatrix Scanner - Em desenvolvimento", style='Dark.TLabel').pack()
-        ttk.Button(frame, text="Fechar", command=self.dialog.destroy).pack(pady=10)
+        self.create_interface()
+
+    def create_interface(self):
+        """Cria interface do ViewMatrix Scanner"""
+        main_frame = ttk.Frame(self.dialog, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Título
+        title_label = ttk.Label(main_frame, text="ViewMatrix Scanner", 
+                               style='Dark.TLabel', font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 10))
+
+        if not self.memory_manager or not self.memory_manager.is_attached():
+            ttk.Label(main_frame, text="❌ Nenhum processo anexado", 
+                     style='Error.TLabel').pack(pady=20)
+            ttk.Button(main_frame, text="Fechar", 
+                      command=self.dialog.destroy, style='Dark.TButton').pack()
+            return
+
+        # Opções de scan
+        options_frame = ttk.LabelFrame(main_frame, text="Opções de Scan", style='Dark.TFrame')
+        options_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Botão de scan automático
+        ttk.Button(options_frame, text="Busca Automática", 
+                  command=self.auto_scan, style='Dark.TButton').pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Botão de scan em range
+        ttk.Button(options_frame, text="Busca em Range", 
+                  command=self.range_scan, style='Dark.TButton').pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Entrada para endereço específico
+        address_frame = ttk.LabelFrame(main_frame, text="Endereço Específico", style='Dark.TFrame')
+        address_frame.pack(fill=tk.X, pady=(0, 10))
+
+        addr_input_frame = ttk.Frame(address_frame, style='Dark.TFrame')
+        addr_input_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(addr_input_frame, text="Endereço:", style='Dark.TLabel').pack(side=tk.LEFT)
+        self.address_var = tk.StringVar()
+        ttk.Entry(addr_input_frame, textvariable=self.address_var, 
+                 style='Dark.TEntry', width=20).pack(side=tk.LEFT, padx=(5, 0))
+
+        ttk.Button(addr_input_frame, text="Ler ViewMatrix", 
+                  command=self.read_specific, style='Dark.TButton').pack(side=tk.LEFT, padx=(5, 0))
+
+        # Resultados
+        results_frame = ttk.LabelFrame(main_frame, text="Resultados", style='Dark.TFrame')
+        results_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Lista de candidatos
+        self.results_listbox = tk.Listbox(results_frame, bg='#1e1e1e', fg='white', 
+                                         selectbackground='#404040', height=8)
+        self.results_listbox.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.results_listbox.bind('<Double-1>', self.on_result_select)
+
+        # Log de atividades
+        log_frame = ttk.LabelFrame(main_frame, text="Log", style='Dark.TFrame')
+        log_frame.pack(fill=tk.X)
+
+        self.log_text = tk.Text(log_frame, height=6, bg='#1e1e1e', fg='#00ff00', 
+                               wrap=tk.WORD, font=('Consolas', 9))
+        self.log_text.pack(fill=tk.X, padx=5, pady=5)
+
+        # Botões inferiores
+        button_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(button_frame, text="Exportar", 
+                  command=self.export_results, style='Dark.TButton').pack(side=tk.LEFT)
+        ttk.Button(button_frame, text="Fechar", 
+                  command=self.dialog.destroy, style='Dark.TButton').pack(side=tk.RIGHT)
+
+        self.log("ViewMatrix Scanner inicializado")
+
+    def log(self, message):
+        """Adiciona mensagem ao log"""
+        import time
+        timestamp = time.strftime("%H:%M:%S")
+        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.log_text.see(tk.END)
+        self.dialog.update()
+
+    def auto_scan(self):
+        """Executa busca automática por ViewMatrix"""
+        if not self.viewmatrix_scanner:
+            self.log("❌ Scanner não disponível")
+            return
+
+        self.log("🔍 Iniciando busca automática...")
+        self.results_listbox.delete(0, tk.END)
+
+        try:
+            candidates = self.viewmatrix_scanner.scan_for_viewmatrix()
+            
+            if candidates:
+                self.log(f"✅ Encontrados {len(candidates)} candidatos")
+                for addr in candidates[:20]:  # Limita exibição
+                    try:
+                        matrix = self.viewmatrix_scanner.read_viewmatrix(addr)
+                        if matrix and matrix.is_valid():
+                            cam_pos = matrix.get_camera_position()
+                            result_text = f"0x{addr:X} - Câmera: ({cam_pos[0]:.2f}, {cam_pos[1]:.2f}, {cam_pos[2]:.2f})"
+                            self.results_listbox.insert(tk.END, result_text)
+                        else:
+                            result_text = f"0x{addr:X} - ViewMatrix inválida"
+                            self.results_listbox.insert(tk.END, result_text)
+                    except:
+                        result_text = f"0x{addr:X} - Erro ao ler"
+                        self.results_listbox.insert(tk.END, result_text)
+            else:
+                self.log("❌ Nenhuma ViewMatrix encontrada")
+
+        except Exception as e:
+            self.log(f"❌ Erro na busca: {e}")
+
+    def range_scan(self):
+        """Executa busca em range específico"""
+        if not self.viewmatrix_scanner:
+            self.log("❌ Scanner não disponível")
+            return
+
+        # Diálogo para entrada de range
+        range_dialog = tk.Toplevel(self.dialog)
+        range_dialog.title("Range de Busca")
+        range_dialog.geometry("300x150")
+        range_dialog.configure(bg='#2b2b2b')
+        range_dialog.transient(self.dialog)
+
+        ttk.Label(range_dialog, text="Endereço inicial (hex):", style='Dark.TLabel').pack(pady=5)
+        start_var = tk.StringVar(value="0x400000")
+        ttk.Entry(range_dialog, textvariable=start_var, style='Dark.TEntry').pack(pady=5)
+
+        ttk.Label(range_dialog, text="Endereço final (hex):", style='Dark.TLabel').pack(pady=5)
+        end_var = tk.StringVar(value="0x800000")
+        ttk.Entry(range_dialog, textvariable=end_var, style='Dark.TEntry').pack(pady=5)
+
+        def execute_range_scan():
+            try:
+                start_addr = int(start_var.get(), 16)
+                end_addr = int(end_var.get(), 16)
+                range_dialog.destroy()
+                
+                self.log(f"🔍 Buscando entre 0x{start_addr:X} e 0x{end_addr:X}...")
+                candidates = self.viewmatrix_scanner.scan_for_viewmatrix((start_addr, end_addr))
+                
+                if candidates:
+                    self.log(f"✅ Encontrados {len(candidates)} candidatos no range")
+                    self.results_listbox.delete(0, tk.END)
+                    for addr in candidates:
+                        self.results_listbox.insert(tk.END, f"0x{addr:X}")
+                else:
+                    self.log("❌ Nenhuma ViewMatrix encontrada no range")
+                    
+            except ValueError:
+                self.log("❌ Endereços inválidos")
+                range_dialog.destroy()
+
+        ttk.Button(range_dialog, text="Buscar", command=execute_range_scan, 
+                  style='Dark.TButton').pack(pady=10)
+
+    def read_specific(self):
+        """Lê ViewMatrix de endereço específico"""
+        if not self.viewmatrix_scanner:
+            self.log("❌ Scanner não disponível")
+            return
+
+        addr_str = self.address_var.get().strip()
+        if not addr_str:
+            self.log("❌ Digite um endereço")
+            return
+
+        try:
+            addr = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str, 16)
+            
+            matrix = self.viewmatrix_scanner.read_viewmatrix(addr)
+            if matrix and matrix.is_valid():
+                cam_pos = matrix.get_camera_position()
+                self.log(f"✅ ViewMatrix válida em 0x{addr:X}")
+                self.log(f"📍 Posição da câmera: ({cam_pos[0]:.3f}, {cam_pos[1]:.3f}, {cam_pos[2]:.3f})")
+                
+                # Adiciona aos resultados
+                result_text = f"0x{addr:X} - Manual - Câmera: ({cam_pos[0]:.2f}, {cam_pos[1]:.2f}, {cam_pos[2]:.2f})"
+                self.results_listbox.insert(tk.END, result_text)
+            else:
+                self.log(f"❌ ViewMatrix inválida em 0x{addr:X}")
+                
+        except ValueError:
+            self.log("❌ Endereço inválido")
+
+    def on_result_select(self, event):
+        """Callback quando resultado é selecionado"""
+        selection = self.results_listbox.curselection()
+        if not selection:
+            return
+            
+        item = self.results_listbox.get(selection[0])
+        # Extrai endereço do texto
+        addr_str = item.split()[0]
+        self.address_var.set(addr_str)
+        self.log(f"Selecionado: {addr_str}")
+
+    def export_results(self):
+        """Exporta resultados para arquivo"""
+        if not self.viewmatrix_scanner:
+            self.log("❌ Scanner não disponível")
+            return
+
+        try:
+            filename = f"viewmatrix_scan_{self.memory_manager.process_id}.json"
+            if self.viewmatrix_scanner.export_viewmatrix_info(filename):
+                self.log(f"✅ Resultados exportados: {filename}")
+            else:
+                self.log("❌ Falha ao exportar")
+        except Exception as e:
+            self.log(f"❌ Erro na exportação: {e}")
 
 class PointerResolverDialog:
     """Diálogo para Pointer Resolver"""
