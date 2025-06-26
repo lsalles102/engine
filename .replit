@@ -51,6 +51,15 @@ args = "pip install psutil"
 task = "shell.exec"
 args = "python main.py"
 
+[[workflows.workflow]]
+name = "Testar Anexação"
+author = 44308950
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python test_attachment.py"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
