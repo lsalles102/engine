@@ -643,6 +643,284 @@ def handle_aob_scan():
         import traceback
         traceback.print_exc()
 
+def handle_memory_scan():
+    """Gerencia operações de scan de memória"""
+    from scanner import MemoryScanner, ScanType, DataType
+
+    global memory_manager
+
+    if not memory_manager.is_attached():
+        print("❌ Nenhum processo anexado")
+        return
+
+    try:
+        scanner = MemoryScanner(memory_manager)
+        
+        print("\n🔍 SCANNER DE MEMÓRIA")
+        print("=" * 50)
+        
+        # Tipo de dado
+        print("Tipos de dados disponíveis:")
+        print("1. int32 (números inteiros 32-bit)")
+        print("2. int64 (números inteiros 64-bit)")
+        print("3. float (números decimais)")
+        print("4. double (números decimais precisos)")
+        print("5. string (texto)")
+        
+        data_type_choice = input("\nEscolha o tipo de dado (1-5): ").strip()
+        data_type_map = {
+            "1": "int32", "2": "int64", "3": "float", 
+            "4": "double", "5": "string"
+        }
+        
+        if data_type_choice not in data_type_map:
+            print("❌ Tipo inválido")
+            return
+            
+        data_type_str = data_type_map[data_type_choice]
+        data_type = DataType(data_type_str)
+        
+        # Valor a buscar
+        value_str = input(f"Digite o valor a buscar ({data_type_str}): ").strip()
+        
+        if not value_str:
+            print("❌ Valor não pode estar vazio")
+            return
+            
+        # Converte valor
+        try:
+            if data_type in [DataType.INT32, DataType.INT64]:
+                value = int(value_str)
+            elif data_type in [DataType.FLOAT, DataType.DOUBLE]:
+                value = float(value_str)
+            else:
+                value = value_str
+        except ValueError:
+            print("❌ Valor inválido para o tipo escolhido")
+            return
+        
+        print(f"\n🔍 Iniciando scan para {data_type_str}: {value}")
+        
+        # Executa scan
+        results = scanner.first_scan(value, data_type, ScanType.EXACT)
+        
+        print(f"✅ Scan concluído: {len(results)} resultados encontrados")
+        
+        if results:
+            print("\nPrimeiros 10 resultados:")
+            for i, result in enumerate(results[:10]):
+                print(f"  {i+1}. 0x{result.address:08X} = {result.value}")
+                
+            if len(results) > 10:
+                print(f"  ... e mais {len(results) - 10} resultados")
+        
+    except Exception as e:
+        print(f"❌ Erro no scan: {e}")
+
+def handle_pointer_resolve():
+    """Gerencia resolução de ponteiros"""
+    from pointer import PointerResolver
+
+    global memory_manager
+
+    if not memory_manager.is_attached():
+        print("❌ Nenhum processo anexado")
+        return
+
+    try:
+        print("\n🔗 RESOLUÇÃO DE PONTEIROS")
+        print("=" * 50)
+        
+        resolver = PointerResolver(memory_manager)
+        
+        base_addr_str = input("Endereço base (hex, ex: 0x400000): ").strip()
+        offsets_str = input("Offsets separados por vírgula (ex: 0x10,0x20,0x30): ").strip()
+        
+        if not base_addr_str or not offsets_str:
+            print("❌ Endereço base e offsets são obrigatórios")
+            return
+            
+        # Converte endereço base
+        try:
+            if base_addr_str.startswith('0x'):
+                base_addr = int(base_addr_str, 16)
+            else:
+                base_addr = int(base_addr_str)
+        except ValueError:
+            print("❌ Endereço base inválido")
+            return
+            
+        # Converte offsets
+        try:
+            offsets = []
+            for offset_str in offsets_str.split(','):
+                offset_str = offset_str.strip()
+                if offset_str.startswith('0x'):
+                    offsets.append(int(offset_str, 16))
+                else:
+                    offsets.append(int(offset_str))
+        except ValueError:
+            print("❌ Offsets inválidos")
+            return
+        
+        print(f"\n🔍 Resolvendo ponteiro...")
+        print(f"Base: 0x{base_addr:X}")
+        print(f"Offsets: {', '.join(f'0x{off:X}' for off in offsets)}")
+        
+        final_addr = resolver.resolve_pointer_chain(base_addr, offsets)
+        
+        if final_addr:
+            print(f"✅ Endereço final: 0x{final_addr:X}")
+            
+            # Tenta ler valor
+            value = memory_manager.read_int32(final_addr)
+            if value is not None:
+                print(f"📍 Valor atual: {value}")
+            else:
+                print("⚠️ Não foi possível ler o valor")
+        else:
+            print("❌ Falha ao resolver ponteiro")
+            
+    except Exception as e:
+        print(f"❌ Erro na resolução: {e}")
+
+def handle_edit_value():
+    """Gerencia edição de valores na memória"""
+    global memory_manager
+
+    if not memory_manager.is_attached():
+        print("❌ Nenhum processo anexado")
+        return
+
+    try:
+        print("\n✏️ EDITAR VALOR NA MEMÓRIA")
+        print("=" * 50)
+        
+        addr_str = input("Endereço (hex, ex: 0x12345678): ").strip()
+        value_str = input("Novo valor: ").strip()
+        
+        if not addr_str or not value_str:
+            print("❌ Endereço e valor são obrigatórios")
+            return
+            
+        # Converte endereço
+        try:
+            if addr_str.startswith('0x'):
+                address = int(addr_str, 16)
+            else:
+                address = int(addr_str)
+        except ValueError:
+            print("❌ Endereço inválido")
+            return
+            
+        # Tenta converter valor como int32 primeiro
+        try:
+            value = int(value_str)
+            
+            print(f"\n📝 Escrevendo valor {value} no endereço 0x{address:X}...")
+            
+            if memory_manager.write_int32(address, value):
+                print("✅ Valor escrito com sucesso!")
+                
+                # Verifica se foi escrito corretamente
+                read_value = memory_manager.read_int32(address)
+                if read_value == value:
+                    print(f"✓ Verificado: {read_value}")
+                else:
+                    print(f"⚠️ Valor lido: {read_value} (diferente do escrito)")
+            else:
+                print("❌ Falha ao escrever valor")
+                
+        except ValueError:
+            print("❌ Valor deve ser um número inteiro")
+            
+    except Exception as e:
+        print(f"❌ Erro ao editar valor: {e}")
+
+def handle_attach_process():
+    """Gerencia anexação a processos"""
+    global memory_manager
+
+    try:
+        print("\n🔗 ANEXAR A PROCESSO")
+        print("=" * 50)
+        
+        # Lista processos
+        print("Buscando processos...")
+        processes = memory_manager.list_processes()
+        
+        print(f"\nProcessos encontrados ({len(processes)}):")
+        print(f"{'PID':<8} {'Nome'}")
+        print("-" * 40)
+        
+        # Mostra apenas os primeiros 20 para não poluir
+        for proc in processes[:20]:
+            print(f"{proc['pid']:<8} {proc['name']}")
+            
+        if len(processes) > 20:
+            print(f"... e mais {len(processes) - 20} processos")
+        
+        pid_str = input("\nDigite o PID do processo: ").strip()
+        
+        if not pid_str:
+            print("❌ PID não pode estar vazio")
+            return
+            
+        try:
+            pid = int(pid_str)
+        except ValueError:
+            print("❌ PID deve ser um número")
+            return
+            
+        print(f"\n🔗 Tentando anexar ao processo PID {pid}...")
+        
+        if memory_manager.attach_to_process(pid):
+            print(f"✅ Anexado com sucesso ao processo: {memory_manager.process_name}")
+        else:
+            print("❌ Falha ao anexar ao processo")
+            print("   Verifique se o PID está correto e se você tem permissões")
+            
+    except Exception as e:
+        print(f"❌ Erro ao anexar processo: {e}")
+
+def handle_process_details():
+    """Mostra detalhes do processo anexado"""
+    global memory_manager
+
+    if not memory_manager.is_attached():
+        print("❌ Nenhum processo anexado")
+        return
+
+    try:
+        print("\n📋 DETALHES DO PROCESSO")
+        print("=" * 50)
+        
+        print(f"PID: {memory_manager.process_id}")
+        print(f"Nome: {memory_manager.process_name}")
+        print(f"Handle: {memory_manager.process_handle}")
+        
+        # Tenta obter mais informações usando psutil
+        try:
+            import psutil
+            process = psutil.Process(memory_manager.process_id)
+            
+            print(f"Status: {process.status()}")
+            print(f"CPU: {process.cpu_percent():.1f}%")
+            
+            memory_info = process.memory_info()
+            print(f"Memória: {memory_info.rss / 1024 / 1024:.1f} MB")
+            
+            print(f"Threads: {process.num_threads()}")
+            print(f"Criado em: {process.create_time()}")
+            
+        except ImportError:
+            print("⚠️ psutil não disponível para informações detalhadas")
+        except Exception as e:
+            print(f"⚠️ Erro ao obter detalhes: {e}")
+            
+    except Exception as e:
+        print(f"❌ Erro ao mostrar detalhes: {e}")
+
 def main_loop():
     """Laço principal do programa"""
     while True:
