@@ -955,7 +955,12 @@ class ProcessSelectionDialog:
                 # Adiciona informação extra se disponível
                 name_display = proc['name']
                 if 'exe' in proc and proc['exe'] != 'Unknown' and proc['exe'] != 'Access Denied':
-                    name_display += f" ({proc['exe'].split('\\')[-1] if '\\' in proc['exe'] else proc['exe']})"
+                    exe_path = proc['exe']
+                    if '\\' in exe_path:
+                        exe_name = exe_path.split('\\')[-1]
+                    else:
+                        exe_name = exe_path
+                    name_display += f" ({exe_name})"
                 
                 self.tree.insert('', tk.END, values=(proc['pid'], name_display))
                 
