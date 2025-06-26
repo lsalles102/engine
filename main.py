@@ -363,17 +363,20 @@ def main():
                     print("3. Execute: python main.py")
                     print("\nOu clique com botão direito no arquivo .py e 'Executar como administrador'")
                     
-                    response = input("\nTentar executar como administrador automaticamente? (s/N): ").lower()
+                    response = input("\nDeseja iniciar como administrador? (s/N): ").lower()
                     if response in ['s', 'sim', 'y', 'yes']:
                         print("Solicitando privilégios administrativos...")
                         request_admin_privileges()
                         return 0
+                    else:
+                        print("\n❌ PROGRAMA ENCERRADO - Privilégios administrativos são obrigatórios")
+                        print("Para pular esta verificação (modo debug): python main.py --no-admin-check")
+                        return 1
                 else:
                     print(f"Execute: sudo python3 {sys.argv[0]}")
-
-                print("\n❌ PROGRAMA ENCERRADO - Privilégios administrativos são obrigatórios")
-                print("Para pular esta verificação (modo debug): python main.py --no-admin-check")
-                return 1
+                    print("\n❌ PROGRAMA ENCERRADO - Privilégios administrativos são obrigatórios")
+                    print("Para pular esta verificação (modo debug): python main.py --no-admin-check")
+                    return 1
 
         # Execução baseada em argumentos
         if args.info:
