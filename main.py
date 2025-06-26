@@ -676,7 +676,7 @@ if __name__ == "__main__":
             pass
 
     # Cria instância global do MemoryManager
-    from memory_manager import MemoryManager
+    from memory import MemoryManager
     memory_manager = MemoryManager()
 
     # Inicia o laço principal
