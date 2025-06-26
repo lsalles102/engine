@@ -1,6 +1,6 @@
 """
 Scanner de Memória para PyCheatEngine
-Implementa funcionalidades de busca e comparação de valores na memória
+Implementa funcionalidades de escaneamento de valores na memória
 """
 
 import struct
@@ -9,8 +9,7 @@ import time
 import sys
 import os
 from enum import Enum
-from typing import List, Optional, Callable, Any, Union
-
+from typing import List, Optional, Callable, Any, Union, Dict
 from memory import MemoryManager
 
 class ScanType(Enum):

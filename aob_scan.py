@@ -1,10 +1,12 @@
 """
 Módulo de Scanner AOB (Array of Bytes) para PyCheatEngine
-Implementa busca de padrões de bytes na memória
+Implementa funcionalidades de busca de padrões de bytes na memória
 """
 
 import re
-from typing import List, Optional, Callable
+import threading
+from typing import List, Optional, Callable, Dict, Any, Union
+from dataclasses import dataclass
 
 class AOBPattern:
     """Representa um padrão AOB"""
@@ -107,7 +109,7 @@ class AOBScanner:
     def get_result_count(self) -> int:
         """Retorna o número de resultados encontrados"""
         return len(self.scan_results)
-    
+
     def get_results_summary(self) -> dict:
         """Retorna um resumo dos resultados"""
         summary = {
@@ -122,77 +124,77 @@ class AOBScanner:
                           description: str = "", max_results: int = 1000) -> List[AOBResult]:
         """
         Realiza busca por padrão de bytes em um módulo específico
-        
+
         Args:
             pattern: Padrão de bytes
             module_name: Nome do módulo (ex: "game.exe")
             description: Descrição do padrão
             max_results: Número máximo de resultados
-            
+
         Returns:
             List[AOBResult]: Lista de resultados encontrados
         """
         module_base = self.memory_manager.get_module_base_address(module_name)
         if not module_base:
             raise RuntimeError(f"Módulo '{module_name}' não encontrado")
-        
+
         # Estima tamanho do módulo (implementação simplificada)
         # Em uma implementação completa, seria necessário obter o tamanho real do módulo
         module_size = 0x1000000  # 16MB por padrão
-        
+
         # Define range para o módulo
         # original_start = self.start_address
         # original_end = self.end_address
-        
+
         # self.set_scan_range(module_base, module_base + module_size)
-        
+
         try:
             results = self.scan_aob(pattern, f"{description} (Module: {module_name})", max_results)
         finally:
             # Restaura range original
             # self.set_scan_range(original_start, original_end)
             pass
-        
+
         return results
-    
+
     def scan_multiple_patterns(self, patterns: List[Dict[str, str]], 
                              max_results_per_pattern: int = 100) -> Dict[str, List[AOBResult]]:
         """
         Realiza busca por múltiplos padrões
-        
+
         Args:
             patterns: Lista de dicionários com 'pattern' e 'description'
             max_results_per_pattern: Máximo de resultados por padrão
-            
+
         Returns:
             Dict: Resultados organizados por padrão
         """
         all_results = {}
-        
+
         for pattern_info in patterns:
             if self.cancel_requested:
                 break
-            
+
             pattern = pattern_info['pattern']
             description = pattern_info.get('description', '')
-            
+
             try:
                 results = self.scan_aob(pattern, description, max_results_per_pattern)
                 all_results[pattern] = results
             except Exception as e:
                 print(f"Erro ao buscar padrão '{pattern}': {e}")
                 all_results[pattern] = []
-        
+
         return all_results
-    
+
     def verify_pattern_at_address(self, address: int, pattern_string: str) -> bool:
         """
         Verifica se um padrão existe em um endereço específico
-        
+
         Args:
             address: Endereço para verificar
             pattern: Padrão de bytes
-            
+
         Returns:
             bool: True se o padrão corresponde
         """
@@ -206,21 +208,21 @@ class AOBScanner:
                     if pattern_byte is not None and data[i] != pattern_byte:
                         return False
                 return True
-            
+
             return False
-            
+
         except Exception as e:
             print(f"Erro ao verificar padrão no endereço 0x{address:X}: {e}")
             return False
-    
+
     def get_bytes_at_address(self, address: int, size: int) -> Optional[str]:
         """
         Obtém bytes em um endereço como string hexadecimal
-        
+
         Args:
             address: Endereço de memória
             size: Número de bytes para ler
-            
+
         Returns:
             str: Bytes em formato hexadecimal ou None se falhou
         """
@@ -231,17 +233,17 @@ class AOBScanner:
             return None
         except:
             return None
-    
+
     def create_pattern_from_address(self, address: int, size: int, 
                                   wildcard_positions: List[int] = None) -> str:
         """
         Cria um padrão AOB a partir de um endereço de memória
-        
+
         Args:
             address: Endereço base
             size: Tamanho em bytes
             wildcard_positions: Posições para colocar wildcards
-            
+
         Returns:
             str: Padrão AOB gerado
         """
@@ -249,26 +251,26 @@ class AOBScanner:
             data = self.memory_manager.read_memory(address, size)
             if not data:
                 return ""
-            
+
             pattern_parts = []
             wildcard_positions = wildcard_positions or []
-            
+
             for i, byte in enumerate(data):
                 if i in wildcard_positions:
                     pattern_parts.append('??')
                 else:
                     pattern_parts.append(f'{byte:02X}')
-            
+
             return ' '.join(pattern_parts)
-            
+
         except Exception as e:
             print(f"Erro ao criar padrão do endereço 0x{address:X}: {e}")
             return ""
-    
+
     def clear_results(self):
         """Limpa todos os resultados de scan"""
         self.scan_results.clear()
-    
+
     def get_result_count(self) -> int:
         """Retorna o número de resultados encontrados"""
         return len(self.scan_results)

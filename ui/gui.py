@@ -8,7 +8,7 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 import threading
 import json
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import struct
 import datetime
 

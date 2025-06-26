@@ -1,8 +1,10 @@
 """
 Módulo de Resolução de Ponteiros para PyCheatEngine
-Implementa funcionalidades para trabalhar com cadeias de ponteiros
+Implementa funcionalidades para resolver cadeias de ponteiros
 """
-from typing import List, Optional, Dict, Any
+
+from typing import List, Optional, Any, Dict, Union
+from dataclasses import dataclass
 
 class PointerChain:
     """Representa uma cadeia de ponteiros"""
