@@ -485,6 +485,8 @@ def create_stealth_memory_manager():
             self.stealth = StealthMemoryManager()
             self.anti_debug = AntiDebugger()
             self.stealth_enabled = True
+            self.use_driver = False
+            self.driver_manager = None
         
         def enable_stealth(self, enabled: bool = True):
             self.stealth_enabled = enabled
@@ -494,21 +496,77 @@ def create_stealth_memory_manager():
             else:
                 self.anti_debug.stop_monitoring()
         
+        def enable_driver_mode(self, enabled: bool = True):
+            """Ativa modo driver para máximo stealth"""
+            self.use_driver = enabled
+            if enabled:
+                try:
+                    from kernel_driver import DriverBasedMemoryManager
+                    self.driver_manager = DriverBasedMemoryManager()
+                    print("🔧 Modo driver ativado - máximo stealth!")
+                except ImportError:
+                    print("❌ Driver não disponível")
+                    self.use_driver = False
+        
+        def attach_to_process(self, process_id: int) -> bool:
+            """Anexa usando driver se disponível"""
+            if self.use_driver and self.driver_manager:
+                return self.driver_manager.attach_to_process(process_id)
+            else:
+                return super().attach_to_process(process_id)
+        
         def read_memory(self, address: int, size: int) -> Optional[bytes]:
-            if self.stealth_enabled:
+            if self.use_driver and self.driver_manager:
+                # Usa driver virtual (máximo stealth)
+                return self.driver_manager.read_memory(address, size)
+            elif self.stealth_enabled:
+                # Usa stealth tradicional
                 return self.stealth.stealth_read_memory(
                     self.process_handle, address, size
                 )
             else:
+                # Usa método padrão
                 return super().read_memory(address, size)
         
         def write_memory(self, address: int, data: bytes) -> bool:
-            if self.stealth_enabled:
+            if self.use_driver and self.driver_manager:
+                # Usa driver virtual (máximo stealth)
+                return self.driver_manager.write_memory(address, data)
+            elif self.stealth_enabled:
+                # Usa stealth tradicional
                 return self.stealth.stealth_write_memory(
                     self.process_handle, address, data
                 )
             else:
+                # Usa método padrão
                 return super().write_memory(address, data)
+        
+        def scan_for_value_driver(self, target_value: int, data_type: str = "int32"):
+            """Scan usando driver virtual"""
+            if self.use_driver and self.driver_manager:
+                return self.driver_manager.scan_for_value(target_value, data_type)
+            else:
+                print("❌ Modo driver não ativo")
+                return []
+        
+        def get_stealth_status(self):
+            """Status stealth completo"""
+            status = {
+                'stealth_enabled': self.stealth_enabled,
+                'driver_mode': self.use_driver,
+                'anti_debug_active': self.anti_debug.monitoring
+            }
+            
+            if self.use_driver and self.driver_manager:
+                status['driver_status'] = self.driver_manager.get_driver_status()
+            
+            return status
+        
+        def close(self):
+            """Fecha todas as conexões"""
+            if self.use_driver and self.driver_manager:
+                self.driver_manager.close()
+            super().close()
     
     return StealthEnhancedMemoryManager()
 

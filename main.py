@@ -94,501 +94,6 @@ Escolha uma opção:
 
 [1] Interface Gráfica (GUI) - Recomendado para usuários iniciantes
 [2] Interface de Linha de Comando (CLI) - Para usuários avançados
-[3] Mostrar informações do sistema
-[4] Verificar privilégios
-[5] Ajuda
-
-"""
-    print(menu)
-
-    while True:
-        try:
-            choice = input("Digite sua opção (0-5): ").strip()
-            if choice in ['0', '1', '2', '3', '4', '5']:
-                return choice
-            else:
-                print("Opção inválida. Digite um número entre 0 e 5.")
-        except (EOFError, KeyboardInterrupt):
-            return '0'
-
-def show_system_info():
-    """Exibe informações do sistema"""
-    try:
-        import psutil
-
-        print("\n" + "="*60)
-        print("INFORMAÇÕES DO SISTEMA")
-        print("="*60)
-
-        # Informações básicas
-        print(f"Sistema Operacional: {platform.system()} {platform.release()}")
-        print(f"Arquitetura: {platform.machine()}")
-        print(f"Versão Python: {sys.version}")
-
-        # Informações de memória
-        memory = psutil.virtual_memory()
-        print(f"Memória Total: {memory.total / (1024**3):.2f} GB")
-        print(f"Memória Disponível: {memory.available / (1024**3):.2f} GB")
-        print(f"Uso de Memória: {memory.percent}%")
-
-        # Informações de CPU
-        print(f"CPU: {platform.processor()}")
-        print(f"Núcleos: {psutil.cpu_count(logical=False)} físicos, {psutil.cpu_count(logical=True)} lógicos")
-
-        # Privilégios
-        is_admin = check_admin_privileges()
-        print(f"Privilégios Administrativos: {'Sim' if is_admin else 'Não'}")
-
-        # Número de processos
-        process_count = len(psutil.pids())
-        print(f"Processos em Execução: {process_count}")
-
-        print("="*60)
-
-    except ImportError:
-        print("\nErro: Biblioteca 'psutil' não encontrada.")
-        print("Instale com: pip install psutil")
-    except Exception as e:
-        print(f"\nErro ao obter informações do sistema: {e}")
-
-def show_help():
-    """Exibe informações de ajuda"""
-    help_text = """
-AJUDA - PyCheatEngine
-
-REQUISITOS OBRIGATÓRIOS:
-• Windows (recomendado) ou Linux
-• Python 3.8 ou superior
-• ⚠️  PRIVILÉGIOS ADMINISTRATIVOS (OBRIGATÓRIO)
-• Bibliotecas: psutil, tkinter (GUI)
-
-COMO EXECUTAR COMO ADMINISTRADOR:
-Windows:
-  1. Botão direito no Prompt de Comando → "Executar como administrador"
-  2. Ou botão direito no arquivo Python → "Executar como administrador"
-Linux:
-  sudo python3 main.py
-
-COMO USAR:
-
-1. Interface Gráfica (GUI):
-   - Mais fácil para iniciantes
-   - Interface visual intuitiva
-   - Todas as funcionalidades disponíveis através de menus
-
-2. Interface de Linha de Comando (CLI):
-   - Para usuários avançados
-   - Controle total via comandos
-   - Ideal para automação e scripts
-
-3. Modo Stealth 🥷:
-   - Funcionalidades anti-detecção avançadas
-   - Múltiplos níveis de evasão (1-5)
-   - Técnicas profissionais de bypass
-
-FUNCIONALIDADES PRINCIPAIS:
-
-• Scanner de Memória:
-  - Busca valores na memória de processos
-  - Suporte a int32, int64, float, double, string
-  - Comparações: igual, maior, menor, alterado, etc.
-
-• Ponteiros:
-  - Resolução de cadeias de ponteiros
-  - Útil para valores que mudam de endereço
-  - Suporte a múltiplos níveis de indireção
-
-• Scanner AOB (Array of Bytes):
-  - Busca padrões de bytes na memória
-  - Suporte a wildcards (??)
-  - Útil para encontrar código específico
-
-• Sessões:
-  - Salva estado atual do programa
-  - Carrega sessões anteriores
-  - Formato JSON legível
-
-🥷 FUNCIONALIDADES STEALTH:
-
-• Anti-Debug:
-  - Detecta debuggers anexados
-  - Monitora ambiente de execução
-  - Identifica VMs e sandboxes
-
-• Evasão de API:
-  - Detecta hooks de antivírus
-  - Bypass de monitoramento
-  - Operações de memória stealth
-
-• Camuflagem:
-  - Process hollowing
-  - Nomes de processo falsos
-  - Títulos de janela camuflados
-
-• Criptografia:
-  - Protege regiões de memória
-  - Ofusca endereços e strings
-  - Chaves baseadas no sistema
-
-• Rede:
-  - Gera tráfego falso
-  - Mascara comunicações
-  - Conexões de distração
-
-NÍVEIS STEALTH:
-Nível 0: Desativado
-Nível 1: Básico (Anti-debug, delays aleatórios)
-Nível 2: Intermediário (+ Detecção de hooks, criptografia)
-Nível 3: Avançado (+ Bypass de hooks, tráfego falso)
-Nível 4: Expert (+ Process hollowing, proteção avançada)
-Nível 5: Máximo (+ Todas as técnicas disponíveis)
-
-SEGURANÇA E ÉTICA:
-• ⚠️ APENAS PARA FINS EDUCACIONAIS E TESTES AUTORIZADOS
-• Use apenas em processos próprios ou com permissão
-• Não utilize para trapacear em jogos online
-• Respeite leis locais sobre engenharia reversa
-• Cuidado com processos críticos do sistema
-
-CONFIGURAÇÃO STEALTH:
-• Arquivo: stealth_config.json
-• Presets: educational, testing, advanced, maximum
-• Configurações de segurança para limitar funcionalidades perigosas
-
-TROUBLESHOOTING:
-• Se não conseguir anexar a um processo, verifique privilégios
-• Para processos 64-bit, use Python 64-bit
-• Alguns antivírus podem detectar como falso positivo
-• Se stealth falhar, verifique configurações de segurança
-
-AVISOS LEGAIS:
-• Esta ferramenta é destinada apenas para educação e pesquisa
-• O uso indevido pode violar leis locais
-• O desenvolvedor não se responsabiliza pelo uso incorreto
-• Sempre obtenha permissão antes de analisar processos de terceiros
-
-Para mais informações, consulte a documentação ou o código fonte.
-    """
-    print(help_text)
-
-def run_gui():
-    """Executa a interface gráfica"""
-    try:
-        print("\nInicializando interface gráfica...")
-        print("Aguarde enquanto a janela é carregada...")
-
-        # Adiciona o diretório atual ao path para resolver imports
-        import sys
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-        import ui.gui
-        CheatEngineGUI = ui.gui.CheatEngineGUI
-
-        # Cria e executa a GUI
-        gui = CheatEngineGUI()
-        gui.run()
-
-    except ImportError as e:
-        print(f"\nErro ao importar interface gráfica: {e}")
-        print("Verifique se o tkinter está instalado corretamente.")
-        if platform.system() == "Linux":
-            print("No Ubuntu/Debian: sudo apt-get install python3-tk")
-            print("No CentOS/RHEL: sudo yum install tkinter")
-    except Exception as e:
-        print(f"\nErro na interface gráfica: {e}")
-        print("Tente usar a interface de linha de comando (opção 2)")
-        print("Ou execute: python main.py --cli")
-
-def run_cli():
-    """Executa a interface de linha de comando"""
-    try:
-        print("\nInicializando interface de linha de comando...")
-
-        # Adiciona o diretório atual ao path para resolver imports
-        import sys
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-        import ui.cli
-        CheatEngineCLI = ui.cli.CheatEngineCLI
-
-        # Cria e executa a CLI
-        cli = CheatEngineCLI()
-        cli.run()
-
-    except Exception as e:
-        print(f"\nErro na interface CLI: {e}")
-
-def run_web_demo():
-    """Executa o demo web interativo"""
-    try:
-        print("\n🌐 Iniciando Demo Web Interativo...")
-        print("Este modo funciona perfeitamente no Replit e outros ambientes web!")
-        print("\nRecursos disponíveis:")
-        print("• Interface moderna e responsiva")
-        print("• Demonstrações interativas de todas as funcionalidades")
-        print("• Log em tempo real das operações")
-        print("• Compatível com qualquer navegador")
-        print("\nAguarde enquanto o servidor web é iniciado...")
-
-        # Executa o web demo
-        import web_demo
-        
-    except KeyboardInterrupt:
-        print("\n\nDemo web interrompido pelo usuário.")
-    except Exception as e:
-        print(f"\nErro no demo web: {e}")
-        print("Tente executar diretamente: python web_demo.py")
-
-def run_stealth_mode():
-    """Executa o modo stealth com funcionalidades anti-detecção"""
-    try:
-        print("\n🥷 MODO STEALTH ATIVADO")
-        print("=" * 50)
-        print("AVISO: Este modo implementa técnicas avançadas de evasão")
-        print("Use apenas para fins educacionais e testes autorizados!")
-        print("=" * 50)
-        
-        # Importa módulo stealth
-        import stealth
-        
-        # Menu stealth
-        while True:
-            print("\n🥷 OPÇÕES STEALTH:")
-            print("1. Demo das capacidades stealth")
-            print("2. Verificar detecção de debugger")
-            print("3. Verificar ambiente de execução")
-            print("4. Scanner stealth avançado")
-            print("5. Esconder janela do console")
-            print("6. Memory manager stealth")
-            print("7. Voltar ao menu principal")
-            
-            choice = input("\nEscolha uma opção (1-7): ").strip()
-            
-            if choice == '1':
-                stealth.demo_stealth_capabilities()
-            elif choice == '2':
-                anti_debug = stealth.AntiDebugger()
-                print(f"\n🛡️ VERIFICAÇÃO ANTI-DEBUG:")
-                print(f"Debugger presente: {'SIM' if anti_debug.check_debugger_present() else 'NÃO'}")
-                print(f"Ambiente VM: {'SIM' if anti_debug.check_vm_environment() else 'NÃO'}")
-                print(f"Ambiente Sandbox: {'SIM' if anti_debug.check_sandbox_environment() else 'NÃO'}")
-            elif choice == '3':
-                print(f"\n🔍 ANÁLISE DO AMBIENTE:")
-                print(f"Sistema sendo monitorado: {'SIM' if stealth.check_if_being_monitored() else 'NÃO'}")
-                
-                # Informações detalhadas
-                import psutil
-                print(f"Processos em execução: {len(psutil.pids())}")
-                print(f"Tempo de uptime: {(time.time() - psutil.boot_time()) / 3600:.1f} horas")
-                
-            elif choice == '4':
-                if not memory_manager.is_attached():
-                    print("❌ Nenhum processo anexado. Use a opção de anexar processo primeiro.")
-                else:
-                    stealth_scanner = stealth.StealthScanner(memory_manager)
-                    
-                    value = input("Digite o valor para buscar: ")
-                    try:
-                        value = int(value)
-                        print("🥷 Iniciando scanner stealth...")
-                        results = stealth_scanner.stealth_scan_memory(value, "int32", "exact")
-                        print(f"✅ Scanner stealth encontrou {len(results)} resultados")
-                        
-                        # Mostra alguns resultados
-                        for i, result in enumerate(results[:5]):
-                            print(f"  {i+1}. 0x{result['address']:08X} = {result['value']}")
-                        
-                    except ValueError:
-                        print("❌ Valor inválido")
-                        
-            elif choice == '5':
-                if stealth.hide_console_window():
-                    print("✅ Janela do console escondida (Windows)")
-                else:
-                    print("❌ Não foi possível esconder janela (apenas Windows)")
-                    
-            elif choice == '6':
-                if not memory_manager.is_attached():
-                    print("❌ Nenhum processo anexado primeiro")
-                else:
-                    print("🥷 Ativando memory manager stealth...")
-                    stealth_mem = stealth.create_stealth_memory_manager()
-                    stealth_mem.enable_stealth(True)
-                    print("✅ Memory manager stealth ativado!")
-                    print("• Operações de memória agora usam técnicas de evasão")
-                    print("• Delays aleatórios entre operações")
-                    print("• Leitura/escrita em chunks pequenos")
-                    print("• Anti-debug monitoring ativo")
-                    
-            elif choice == '7':
-                break
-            else:
-                print("❌ Opção inválida")
-            
-            if choice != '7':
-                input("\nPressione Enter para continuar...")
-                
-    except KeyboardInterrupt:
-        print("\n\n🥷 Modo stealth encerrado pelo usuário")
-    except Exception as e:
-        print(f"\n❌ Erro no modo stealth: {e}")
-        import traceback
-        traceback.print_exc()
-
-def check_dependencies():
-    """Verifica se as dependências estão instaladas"""
-    required_modules = ['psutil', 'tkinter']
-    missing_modules = []
-
-    for module in required_modules:
-        try:
-            if module == 'tkinter':
-                import tkinter
-            else:
-                __import__(module)
-        except ImportError:
-            missing_modules.append(module)
-
-    if missing_modules:
-        print(f"\nAVISO: Módulos faltando: {', '.join(missing_modules)}")
-        print("Instale com: pip install " + " ".join(missing_modules))
-        return False
-
-    return True
-
-def parse_arguments():
-    """Analisa argumentos da linha de comando"""
-    parser = argparse.ArgumentParser(
-        description='PyCheatEngine - Sistema de Engenharia Reversa e Manipulação de Memória',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Exemplos de uso:
-  python main.py              # Menu interativo
-  python main.py --gui        # Interface gráfica direta
-  python main.py --cli        # Interface CLI direta
-  python main.py --info       # Informações do sistema
-        """
-    )
-
-    parser.add_argument('--gui', action='store_true',
-                       help='Executa diretamente a interface gráfica')
-    parser.add_argument('--cli', action='store_true',
-                       help='Executa diretamente a interface CLI')
-    parser.add_argument('--info', action='store_true',
-                       help='Mostra informações do sistema e sai')
-    parser.add_argument('--no-admin-check', action='store_true',
-                       help='Pula verificação de privilégios administrativos')
-    parser.add_argument('--version', action='version', version='PyCheatEngine 1.0.0')
-
-    return parser.parse_args()
-
-def main():
-    """Função principal do programa"""
-    try:
-        # Configura logging para debug
-        import logging
-        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-        # Analisa argumentos
-        args = parse_arguments()
-
-        # Mostra banner
-        show_banner()
-
-        # Verifica dependências
-        if not check_dependencies():
-            print("\nInstale as dependências necessárias antes de continuar.")
-            return 1
-
-        # Verifica privilégios administrativos (OBRIGATÓRIO)
-        if not args.no_admin_check:
-            if not check_admin_privileges():
-                print("\n❌ ERRO: Este programa DEVE ser executado com privilégios administrativos!")
-                print("É necessário para acessar a memória de outros processos.")
-                print("\nComo executar como administrador:")
-
-                if platform.system() == "Windows":
-                    print("1. Clique com botão direito no Prompt de Comando")
-                    print("2. Selecione 'Executar como administrador'")
-                    print("3. Execute: python main.py")
-                    print("\nOu clique com botão direito no arquivo .py e 'Executar como administrador'")
-                    
-                    response = input("\nDeseja iniciar como administrador? (s/N): ").lower()
-                    if response in ['s', 'sim', 'y', 'yes']:
-                        print("Solicitando privilégios administrativos...")
-                        request_admin_privileges()
-                        return 0
-                    else:
-                        print("\n❌ PROGRAMA ENCERRADO - Privilégios administrativos são obrigatórios")
-                        print("Para pular esta verificação (modo debug): python main.py --no-admin-check")
-                        return 1
-                else:
-                    print(f"Execute: sudo python3 {sys.argv[0]}")
-                    print("\n❌ PROGRAMA ENCERRADO - Privilégios administrativos são obrigatórios")
-                    print("Para pular esta verificação (modo debug): python main.py --no-admin-check")
-                    return 1
-
-        # Execução baseada em argumentos
-        if args.info:
-            show_system_info()
-            return 0
-        elif args.gui:
-            run_gui()
-            return 0
-        elif args.cli:
-            run_cli()
-            return 0
-
-        # Menu principal interativo
-        while True:
-            choice = show_main_menu()
-
-            if choice == '0':
-                print("\nObrigado por usar o PyCheatEngine!")
-                break
-            elif choice == '1':
-                run_gui()
-            elif choice == '2':
-                run_cli()
-            elif choice == '3':
-                show_system_info()
-            elif choice == '4':
-                is_admin = check_admin_privileges()
-                print(f"\nPrivilégios Administrativos: {'✓ Sim' if is_admin else '✗ Não'}")
-                if not is_admin:
-                    print("Execute o programa como administrador para melhor funcionalidade.")
-            elif choice == '5':
-                show_help()
-
-            # Pausa antes de mostrar o menu novamente
-            if choice != '0':
-                input("\nPressione Enter para continuar...")
-
-        return 0
-
-    except KeyboardInterrupt:
-        print("\n\nPrograma interrompido pelo usuário.")
-        return 1
-    except Exception as e:
-        print(f"\nErro inesperado: {e}")
-        print("Se o problema persistir, verifique a instalação ou contate o suporte.")
-        return 1
-
-    
-# Adicionando a função handle_viewmatrix_scanner e modificando a função show_main_menu
-
-def show_main_menu() -> str:
-    """
-    Exibe o menu principal e retorna a escolha do usuário
-
-    Returns:
-        str: Opção escolhida pelo usuário
-    """
-    menu = """
-Escolha uma opção:
-
-[1] Interface Gráfica (GUI) - Recomendado para usuários iniciantes
-[2] Interface de Linha de Comando (CLI) - Para usuários avançados
 [3] Demo Web Interativo - Funciona perfeitamente no Replit
 [4] Modo Stealth 🥷 - Funcionalidades anti-detecção
 [5] Mostrar informações do sistema
@@ -825,10 +330,10 @@ def handle_memory_scan():
 
     try:
         scanner = MemoryScanner(memory_manager)
-        
+
         print("\n🔍 SCANNER DE MEMÓRIA")
         print("=" * 50)
-        
+
         # Tipo de dado
         print("Tipos de dados disponíveis:")
         print("1. int32 (números inteiros 32-bit)")
@@ -836,27 +341,27 @@ def handle_memory_scan():
         print("3. float (números decimais)")
         print("4. double (números decimais precisos)")
         print("5. string (texto)")
-        
+
         data_type_choice = input("\nEscolha o tipo de dado (1-5): ").strip()
         data_type_map = {
             "1": "int32", "2": "int64", "3": "float", 
             "4": "double", "5": "string"
         }
-        
+
         if data_type_choice not in data_type_map:
             print("❌ Tipo inválido")
             return
-            
+
         data_type_str = data_type_map[data_type_choice]
         data_type = DataType(data_type_str)
-        
+
         # Valor a buscar
         value_str = input(f"Digite o valor a buscar ({data_type_str}): ").strip()
-        
+
         if not value_str:
             print("❌ Valor não pode estar vazio")
             return
-            
+
         # Converte valor
         try:
             if data_type in [DataType.INT32, DataType.INT64]:
@@ -868,22 +373,22 @@ def handle_memory_scan():
         except ValueError:
             print("❌ Valor inválido para o tipo escolhido")
             return
-        
+
         print(f"\n🔍 Iniciando scan para {data_type_str}: {value}")
-        
+
         # Executa scan
         results = scanner.first_scan(value, data_type, ScanType.EXACT)
-        
+
         print(f"✅ Scan concluído: {len(results)} resultados encontrados")
-        
+
         if results:
             print("\nPrimeiros 10 resultados:")
             for i, result in enumerate(results[:10]):
                 print(f"  {i+1}. 0x{result.address:08X} = {result.value}")
-                
+
             if len(results) > 10:
                 print(f"  ... e mais {len(results) - 10} resultados")
-        
+
     except Exception as e:
         print(f"❌ Erro no scan: {e}")
 
@@ -900,16 +405,16 @@ def handle_pointer_resolve():
     try:
         print("\n🔗 RESOLUÇÃO DE PONTEIROS")
         print("=" * 50)
-        
+
         resolver = PointerResolver(memory_manager)
-        
+
         base_addr_str = input("Endereço base (hex, ex: 0x400000): ").strip()
         offsets_str = input("Offsets separados por vírgula (ex: 0x10,0x20,0x30): ").strip()
-        
+
         if not base_addr_str or not offsets_str:
             print("❌ Endereço base e offsets são obrigatórios")
             return
-            
+
         # Converte endereço base
         try:
             if base_addr_str.startswith('0x'):
@@ -919,7 +424,7 @@ def handle_pointer_resolve():
         except ValueError:
             print("❌ Endereço base inválido")
             return
-            
+
         # Converte offsets
         try:
             offsets = []
@@ -932,16 +437,16 @@ def handle_pointer_resolve():
         except ValueError:
             print("❌ Offsets inválidos")
             return
-        
+
         print(f"\n🔍 Resolvendo ponteiro...")
         print(f"Base: 0x{base_addr:X}")
         print(f"Offsets: {', '.join(f'0x{off:X}' for off in offsets)}")
-        
+
         final_addr = resolver.resolve_pointer_chain(base_addr, offsets)
-        
+
         if final_addr:
             print(f"✅ Endereço final: 0x{final_addr:X}")
-            
+
             # Tenta ler valor
             value = memory_manager.read_int32(final_addr)
             if value is not None:
@@ -950,7 +455,7 @@ def handle_pointer_resolve():
                 print("⚠️ Não foi possível ler o valor")
         else:
             print("❌ Falha ao resolver ponteiro")
-            
+
     except Exception as e:
         print(f"❌ Erro na resolução: {e}")
 
@@ -965,14 +470,14 @@ def handle_edit_value():
     try:
         print("\n✏️ EDITAR VALOR NA MEMÓRIA")
         print("=" * 50)
-        
+
         addr_str = input("Endereço (hex, ex: 0x12345678): ").strip()
         value_str = input("Novo valor: ").strip()
-        
+
         if not addr_str or not value_str:
             print("❌ Endereço e valor são obrigatórios")
             return
-            
+
         # Converte endereço
         try:
             if addr_str.startswith('0x'):
@@ -982,16 +487,16 @@ def handle_edit_value():
         except ValueError:
             print("❌ Endereço inválido")
             return
-            
+
         # Tenta converter valor como int32 primeiro
         try:
             value = int(value_str)
-            
+
             print(f"\n📝 Escrevendo valor {value} no endereço 0x{address:X}...")
-            
+
             if memory_manager.write_int32(address, value):
                 print("✅ Valor escrito com sucesso!")
-                
+
                 # Verifica se foi escrito corretamente
                 read_value = memory_manager.read_int32(address)
                 if read_value == value:
@@ -1000,10 +505,10 @@ def handle_edit_value():
                     print(f"⚠️ Valor lido: {read_value} (diferente do escrito)")
             else:
                 print("❌ Falha ao escrever valor")
-                
+
         except ValueError:
             print("❌ Valor deve ser um número inteiro")
-            
+
     except Exception as e:
         print(f"❌ Erro ao editar valor: {e}")
 
@@ -1014,42 +519,42 @@ def handle_attach_process():
     try:
         print("\n🔗 ANEXAR A PROCESSO")
         print("=" * 50)
-        
+
         # Lista processos
         print("Buscando processos...")
         processes = memory_manager.list_processes()
-        
+
         print(f"\nProcessos encontrados ({len(processes)}):")
         print(f"{'PID':<8} {'Nome'}")
         print("-" * 40)
-        
+
         # Mostra apenas os primeiros 20 para não poluir
         for proc in processes[:20]:
             print(f"{proc['pid']:<8} {proc['name']}")
-            
+
         if len(processes) > 20:
             print(f"... e mais {len(processes) - 20} processos")
-        
+
         pid_str = input("\nDigite o PID do processo: ").strip()
-        
+
         if not pid_str:
             print("❌ PID não pode estar vazio")
             return
-            
+
         try:
             pid = int(pid_str)
         except ValueError:
             print("❌ PID deve ser um número")
             return
-            
+
         print(f"\n🔗 Tentando anexar ao processo PID {pid}...")
-        
+
         if memory_manager.attach_to_process(pid):
             print(f"✅ Anexado com sucesso ao processo: {memory_manager.process_name}")
         else:
             print("❌ Falha ao anexar ao processo")
             print("   Verifique se o PID está correto e se você tem permissões")
-            
+
     except Exception as e:
         print(f"❌ Erro ao anexar processo: {e}")
 
@@ -1064,30 +569,30 @@ def handle_process_details():
     try:
         print("\n📋 DETALHES DO PROCESSO")
         print("=" * 50)
-        
+
         print(f"PID: {memory_manager.process_id}")
         print(f"Nome: {memory_manager.process_name}")
         print(f"Handle: {memory_manager.process_handle}")
-        
+
         # Tenta obter mais informações usando psutil
         try:
             import psutil
             process = psutil.Process(memory_manager.process_id)
-            
+
             print(f"Status: {process.status()}")
             print(f"CPU: {process.cpu_percent():.1f}%")
-            
+
             memory_info = process.memory_info()
             print(f"Memória: {memory_info.rss / 1024 / 1024:.1f} MB")
-            
+
             print(f"Threads: {process.num_threads()}")
             print(f"Criado em: {process.create_time()}")
-            
+
         except ImportError:
             print("⚠️ psutil não disponível para informações detalhadas")
         except Exception as e:
             print(f"⚠️ Erro ao obter detalhes: {e}")
-            
+
     except Exception as e:
         print(f"❌ Erro ao mostrar detalhes: {e}")
 
