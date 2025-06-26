@@ -600,6 +600,14 @@ def handle_process_details():
 def run_gui():
     """Executa a interface gráfica"""
     try:
+        # Verifica privilégios antes de iniciar
+        if not check_admin_privileges():
+            print("⚠️  AVISO: Não está executando como administrador!")
+            print("Algumas funcionalidades podem não funcionar corretamente.")
+            print("Para anexar processos, execute como administrador.\n")
+        else:
+            print("✅ Executando com privilégios administrativos")
+        
         print("Inicializando interface gráfica...")
         print("Aguarde enquanto a janela é carregada...")
         

@@ -944,28 +944,80 @@ class ProcessSelectionDialog:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # Carrega processos
+        # Mostra status de carregamento
+        loading_item = self.tree.insert('', tk.END, values=("...", "Carregando processos..."))
+        self.dialog.update()
+
         try:
+            print("🔄 Atualizando lista de processos...")
             processes = self.memory_manager.list_processes()
+            
+            # Remove item de carregamento
+            self.tree.delete(loading_item)
+            
             if not processes:
-                messagebox.showwarning("Aviso", "Nenhum processo encontrado. Execute como administrador.")
+                self.tree.insert('', tk.END, values=("", "❌ Nenhum processo encontrado"))
+                messagebox.showwarning("Aviso", 
+                    "Nenhum processo encontrado!\n\n" +
+                    "Possíveis soluções:\n" +
+                    "• Execute como administrador\n" +
+                    "• Verifique se há processos rodando\n" +
+                    "• Tente reiniciar o PyCheatEngine")
                 return
                 
+            print(f"✓ Carregando {len(processes)} processos na lista...")
+            
+            # Adiciona processos à lista
             for proc in processes:
-                # Adiciona informação extra se disponível
-                name_display = proc['name']
-                if 'exe' in proc and proc['exe'] != 'Unknown' and proc['exe'] != 'Access Denied':
-                    exe_path = proc['exe']
-                    if '\\' in exe_path:
-                        exe_name = exe_path.split('\\')[-1]
-                    else:
-                        exe_name = exe_path
-                    name_display += f" ({exe_name})"
+                try:
+                    # Cria nome de exibição
+                    name_display = proc['name']
+                    
+                    # Adiciona informações extras se disponíveis
+                    extras = []
+                    
+                    if 'exe' in proc and proc['exe'] not in ['Unknown', 'Access Denied', '']:
+                        exe_path = proc['exe']
+                        if '\\' in exe_path:
+                            exe_name = exe_path.split('\\')[-1]
+                        else:
+                            exe_name = exe_path
+                        
+                        if exe_name != proc['name']:
+                            extras.append(exe_name)
+                    
+                    if 'status' in proc and proc['status'] != 'unknown':
+                        extras.append(proc['status'])
+                    
+                    if extras:
+                        name_display += f" ({', '.join(extras)})"
+                    
+                    # Adiciona à árvore
+                    self.tree.insert('', tk.END, values=(proc['pid'], name_display))
+                    
+                except Exception as e:
+                    print(f"⚠️ Erro ao processar processo {proc.get('pid', '?')}: {e}")
+                    continue
                 
-                self.tree.insert('', tk.END, values=(proc['pid'], name_display))
-                
+            print(f"✅ Lista atualizada com {len(processes)} processos")
+            
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao listar processos: {e}\n\nTente executar como administrador.")
+            # Remove item de carregamento se ainda estiver lá
+            try:
+                self.tree.delete(loading_item)
+            except:
+                pass
+                
+            self.tree.insert('', tk.END, values=("", f"❌ Erro: {str(e)[:50]}..."))
+            
+            error_msg = f"Erro ao listar processos: {e}\n\n"
+            error_msg += "Soluções:\n"
+            error_msg += "• Execute como administrador\n"
+            error_msg += "• Feche outros programas que possam interferir\n"
+            error_msg += "• Reinicie o sistema se necessário"
+            
+            print(f"❌ Erro na listagem: {e}")
+            messagebox.showerror("Erro na Listagem", error_msg)
 
     def select_process(self):
         """Seleciona processo"""
