@@ -96,7 +96,6 @@ Escolha uma opção:
 [3] Mostrar informações do sistema
 [4] Verificar privilégios
 [5] Ajuda
-[0] Sair
 
 """
     print(menu)
@@ -331,7 +330,7 @@ def main():
         # Configura logging para debug
         import logging
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-        
+
         # Analisa argumentos
         args = parse_arguments()
 
@@ -408,6 +407,266 @@ def main():
         print("Se o problema persistir, verifique a instalação ou contate o suporte.")
         return 1
 
+    
+# Adicionando a função handle_viewmatrix_scanner e modificando a função show_main_menu
+
+def show_main_menu() -> str:
+    """
+    Exibe o menu principal e retorna a escolha do usuário
+
+    Returns:
+        str: Opção escolhida pelo usuário
+    """
+    menu = """
+Escolha uma opção:
+
+1. Scanner de Memória
+2. Resolução de Ponteiros
+3. Editar Valor na Memória
+4. Anexar a um Processo
+5. Detalhes do Processo
+6. Busca AOB (Array of Bytes)
+7. ViewMatrix Scanner
+8. Sair
+--------------------------------------------------
+"""
+    print(menu)
+
+    while True:
+        choice = input("Digite sua opção (1-8): ").strip()
+        if choice in ['1', '2', '3', '4', '5', '6', '7', '8']:
+            return choice
+        else:
+            print("Opção inválida. Digite um número entre 1 e 8.")
+
+# Adicionando a função handle_viewmatrix_scanner
+def handle_viewmatrix_scanner():
+    """Gerencia busca por ViewMatrix"""
+    from viewmatrix import ViewMatrixScanner
+
+    # Garante que memory_manager está acessível
+    global memory_manager
+
+    if not memory_manager.is_attached():
+        print("❌ Nenhum processo anexado")
+        return
+
+    try:
+        print("\n🎯 VIEWMATRIX SCANNER")
+        print("=" * 50)
+
+        vm_scanner = ViewMatrixScanner(memory_manager)
+
+        print("\n1. Busca automática")
+        print("2. Busca em range específico")
+        print("3. Ler ViewMatrix de endereço conhecido")
+        print("4. Monitorar ViewMatrix")
+        print("5. Testar conversão World-to-Screen")
+
+        choice = input("\nEscolha uma opção: ").strip()
+
+        if choice == "1":
+            # Busca automática
+            print("\n🔍 Iniciando busca automática por ViewMatrix...")
+            candidates = vm_scanner.scan_for_viewmatrix()
+
+            if candidates:
+                print(f"\n✅ Encontrados {len(candidates)} candidatos:")
+                for i, addr in enumerate(candidates[:10]):  # Mostra apenas os primeiros 10
+                    matrix = vm_scanner.read_viewmatrix(addr)
+                    if matrix:
+                        cam_pos = matrix.get_camera_position()
+                        print(f"  {i+1}. 0x{addr:X} - Câmera: ({cam_pos[0]:.2f}, {cam_pos[1]:.2f}, {cam_pos[2]:.2f})")
+
+                best = vm_scanner.get_best_candidate()
+                if best:
+                    print(f"\n🎯 Melhor candidato: 0x{best:X}")
+
+                    # Oferecer para exportar
+                    if input("\nExportar informações? (y/n): ").lower() == 'y':
+                        vm_scanner.export_viewmatrix_info(f"viewmatrix_scan_{memory_manager.process_id}.json")
+            else:
+                print("❌ Nenhuma ViewMatrix encontrada")
+
+        elif choice == "2":
+            # Busca em range específico
+            try:
+                start_addr = int(input("Endereço inicial (hex, ex: 0x400000): "), 16)
+                end_addr = int(input("Endereço final (hex, ex: 0x800000): "), 16)
+
+                print(f"\n🔍 Buscando ViewMatrix entre 0x{start_addr:X} e 0x{end_addr:X}...")
+                candidates = vm_scanner.scan_for_viewmatrix((start_addr, end_addr))
+
+                if candidates:
+                    print(f"\n✅ Encontrados {len(candidates)} candidatos no range especificado")
+                    for addr in candidates:
+                        print(f"  • 0x{addr:X}")
+                else:
+                    print("❌ Nenhuma ViewMatrix encontrada no range")
+
+            except ValueError:
+                print("❌ Endereços inválidos")
+
+        elif choice == "3":
+            # Ler de endereço conhecido
+            try:
+                addr = int(input("Endereço da ViewMatrix (hex, ex: 0x12345678): "), 16)
+
+                matrix = vm_scanner.read_viewmatrix(addr)
+                if matrix and matrix.is_valid():
+                    cam_pos = matrix.get_camera_position()
+                    print(f"\n✅ ViewMatrix válida encontrada!")
+                    print(f"📍 Posição da câmera: ({cam_pos[0]:.3f}, {cam_pos[1]:.3f}, {cam_pos[2]:.3f})")
+                    print(f"🔢 Matrix:")
+                    for row in matrix.matrix:
+                        print(f"  [{row[0]:8.3f} {row[1]:8.3f} {row[2]:8.3f} {row[3]:8.3f}]")
+                else:
+                    print("❌ ViewMatrix inválida ou não encontrada")
+
+            except ValueError:
+                print("❌ Endereço inválido")
+
+        elif choice == "4":
+            # Monitorar ViewMatrix
+            try:
+                addr = int(input("Endereço da ViewMatrix para monitorar (hex): "), 16)
+
+                def matrix_callback(matrix):
+                    cam_pos = matrix.get_camera_position()
+                    print(f"\r📹 Câmera: ({cam_pos[0]:7.2f}, {cam_pos[1]:7.2f}, {cam_pos[2]:7.2f})", end="", flush=True)
+
+                print("\n🎥 Iniciando monitoramento... (Ctrl+C para parar)")
+                vm_scanner.monitor_viewmatrix(addr, matrix_callback)
+
+                try:
+                    while True:
+                        import time
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    print("\n\n⏹️ Monitoramento parado")
+
+            except ValueError:
+                print("❌ Endereço inválido")
+
+        elif choice == "5":
+            # Testar conversão World-to-Screen
+            try:
+                addr = int(input("Endereço da ViewMatrix (hex): "), 16)
+                matrix = vm_scanner.read_viewmatrix(addr)
+
+                if not matrix or not matrix.is_valid():
+                    print("❌ ViewMatrix inválida")
+                    return
+
+                # Entrada de coordenadas do mundo
+                world_x = float(input("Coordenada X do mundo: "))
+                world_y = float(input("Coordenada Y do mundo: "))
+                world_z = float(input("Coordenada Z do mundo: "))
+
+                # Dimensões da tela
+                screen_w = int(input("Largura da tela (ex: 1920): ") or "1920")
+                screen_h = int(input("Altura da tela (ex: 1080): ") or "1080")
+
+                # Conversão
+                screen_pos = matrix.world_to_screen((world_x, world_y, world_z), screen_w, screen_h)
+
+                if screen_pos:
+                    print(f"\n✅ Coordenadas de tela: ({screen_pos[0]}, {screen_pos[1]})")
+                    print(f"📍 Posição válida na tela!")
+                else:
+                    print("❌ Coordenadas fora da tela ou atrás da câmera")
+
+            except (ValueError, TypeError):
+                print("❌ Valores inválidos")
+
+        else:
+            print("❌ Opção inválida")
+
+    except Exception as e:
+        print(f"❌ Erro no ViewMatrix Scanner: {e}")
+        import traceback
+        traceback.print_exc()
+
+def handle_aob_scan():
+    """Gerencia busca por Array of Bytes"""
+    from aob_scan import AOBScanner
+
+    # Garante que memory_manager está acessível
+    global memory_manager
+
+    if not memory_manager.is_attached():
+        print("❌ Nenhum processo anexado")
+        return
+
+    try:
+        print("\n🔍 AOB SCANNER")
+        print("=" * 50)
+
+        aob_scanner = AOBScanner(memory_manager)
+
+        aob_pattern = input("Digite o padrão AOB (ex: A1 B2 ?? C3): ").strip().upper()
+        start_addr_str = input("Endereço inicial (hex, ex: 0x400000, deixe em branco para padrão): ").strip()
+        end_addr_str = input("Endereço final (hex, ex: 0x800000, deixe em branco para padrão): ").strip()
+
+        start_addr = None
+        end_addr = None
+
+        if start_addr_str:
+            try:
+                start_addr = int(start_addr_str, 16)
+            except ValueError:
+                print("❌ Endereço inicial inválido")
+                return
+
+        if end_addr_str:
+            try:
+                end_addr = int(end_addr_str, 16)
+            except ValueError:
+                print("❌ Endereço final inválido")
+                return
+
+        print(f"\n🔍 Buscando padrão '{aob_pattern}'...")
+        if start_addr is not None and end_addr is not None:
+            print(f"  Entre 0x{start_addr:X} e 0x{end_addr:X}")
+
+        candidates = aob_scanner.scan_aob(aob_pattern, (start_addr, end_addr) if start_addr and end_addr else None)
+
+        if candidates:
+            print(f"\n✅ Encontrados {len(candidates)} correspondências:")
+            for addr in candidates[:20]:  # Limita a exibição
+                print(f"  • 0x{addr:X}")
+        else:
+            print("❌ Nenhum resultado encontrado")
+
+    except Exception as e:
+        print(f"❌ Erro no AOB Scanner: {e}")
+        import traceback
+        traceback.print_exc()
+
+def main_loop():
+    """Laço principal do programa"""
+    while True:
+        choice = show_main_menu()
+
+        if choice == "1":
+            handle_memory_scan()
+        elif choice == "2":
+            handle_pointer_resolve()
+        elif choice == "3":
+            handle_edit_value()
+        elif choice == "4":
+            handle_attach_process()
+        elif choice == "5":
+            handle_process_details()
+        elif choice == "6":
+            handle_aob_scan()
+        elif choice == "7":
+            handle_viewmatrix_scanner()
+        elif choice == "8":
+            break
+        else:
+            print("❌ Opção inválida")
+
 if __name__ == "__main__":
     # Define o título da janela do console no Windows
     if platform.system() == "Windows":
@@ -416,6 +675,11 @@ if __name__ == "__main__":
         except:
             pass
 
-    # Executa o programa principal
-    exit_code = main()
-    sys.exit(exit_code)
+    # Cria instância global do MemoryManager
+    from memory_manager import MemoryManager
+    memory_manager = MemoryManager()
+
+    # Inicia o laço principal
+    main_loop()
+
+    print("\n👋 Obrigado por usar o PyCheatEngine!")

@@ -1,5 +1,6 @@
-
+# PyCheatEngine - Dependências
 psutil>=5.9.0
 flask
+numpy>=1.21.0
 psutil
 psutil
