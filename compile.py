@@ -1,14 +1,24 @@
+
 #!/usr/bin/env python3
 """
 Script simplificado para compilar PyCheatEngine
 """
 import subprocess
 import os
+import sys
 
 def compile_pycheatengine():
     """Compila PyCheatEngine para executáveis"""
     
     print("=== Compilando PyCheatEngine para EXE ===\n")
+    
+    # Verifica se PyInstaller está instalado
+    try:
+        import PyInstaller
+        print("✓ PyInstaller encontrado")
+    except ImportError:
+        print("Instalando PyInstaller...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"])
     
     # 1. Compila demonstração (GUI)
     print("1. Compilando PyCheatEngine_Demo.exe...")
@@ -57,10 +67,6 @@ def compile_pycheatengine():
     if os.path.exists(main_exe):
         size = os.path.getsize(main_exe) / (1024*1024)
         print(f"✓ {main_exe} ({size:.1f} MB)")
-    
-    print("\nPara usar:")
-    print("- PyCheatEngine_Demo.exe: Demonstração com interface gráfica")
-    print("- PyCheatEngine.exe: Versão completa (requer privilégios admin)")
 
 if __name__ == "__main__":
     compile_pycheatengine()

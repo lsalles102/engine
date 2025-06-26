@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Compilador rápido para PyCheatEngine
