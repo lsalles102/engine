@@ -42,6 +42,9 @@ class PyCheatEngineGUI:
         self.is_scanning = False
         self.scan_progress = tk.DoubleVar()
 
+        # Verifica privilégios administrativos
+        self.check_admin_privileges()
+
         # Configuração de estilo
         self.setup_styles()
 
@@ -55,6 +58,79 @@ class PyCheatEngineGUI:
         self.scanner = MemoryScanner(self.memory_manager)
 
         self.update_interface_state()
+
+    def check_admin_privileges(self):
+        """Verifica e alerta sobre privilégios administrativos"""
+        import platform
+        import ctypes
+        
+        try:
+            if platform.system() == 'Windows':
+                is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+            else:
+                is_admin = os.geteuid() == 0
+        except:
+            is_admin = False
+            
+        if not is_admin:
+            # Mostra aviso na interface
+            self.show_admin_warning()
+    
+    def show_admin_warning(self):
+        """Mostra aviso sobre privilégios administrativos"""
+        def show_warning():
+            result = messagebox.askyesno(
+                "⚠️ Privilégios Administrativos",
+                "PyCheatEngine não está sendo executado como administrador!\n\n" +
+                "Para anexar processos corretamente, privilégios administrativos são necessários.\n\n" +
+                "Deseja executar como administrador?\n\n" +
+                "• Clique 'Sim' para reiniciar como administrador\n" +
+                "• Clique 'Não' para continuar (funcionalidade limitada)",
+                icon='warning'
+            )
+            
+            if result:
+                self.request_admin_and_restart()
+        
+        # Agenda para depois da inicialização
+        self.root.after(1000, show_warning)
+    
+    def request_admin_and_restart(self):
+        """Solicita privilégios administrativos e reinicia"""
+        try:
+            import platform
+            import ctypes
+            import sys
+            
+            if platform.system() == "Windows":
+                # Reconstrói argumentos
+                args = ' '.join(sys.argv)
+                
+                # Executa como administrador
+                ctypes.windll.shell32.ShellExecuteW(
+                    None, 
+                    "runas", 
+                    sys.executable, 
+                    args, 
+                    None, 
+                    1
+                )
+                
+                # Fecha a instância atual
+                self.root.quit()
+                sys.exit(0)
+            else:
+                messagebox.showinfo(
+                    "Privilégios Administrativos",
+                    "Execute o programa com 'sudo' no Linux:\n\n" +
+                    f"sudo python3 {sys.argv[0]}"
+                )
+        except Exception as e:
+            messagebox.showerror(
+                "Erro",
+                f"Erro ao solicitar privilégios administrativos:\n{e}\n\n" +
+                "Execute manualmente como administrador."
+            )
 
     def setup_styles(self):
         """Configura estilos da interface"""
@@ -80,6 +156,8 @@ class PyCheatEngineGUI:
         menubar.add_cascade(label="Arquivo", menu=file_menu)
         file_menu.add_command(label="Anexar Processo", command=self.attach_process_dialog)
         file_menu.add_command(label="Desanexar", command=self.detach_process)
+        file_menu.add_separator()
+        file_menu.add_command(label="Executar como Administrador", command=self.request_admin_and_restart)
         file_menu.add_separator()
         file_menu.add_command(label="Exportar Resultados", command=self.export_results)
         file_menu.add_command(label="Importar Resultados", command=self.import_results)
@@ -927,16 +1005,32 @@ class ProcessSelectionDialog:
         button_frame = ttk.Frame(self.dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
-        ttk.Button(button_frame, text="Atualizar", command=self.refresh_processes).pack(side=tk.LEFT)
-        ttk.Button(button_frame, text="Anexar", command=self.select_process).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(button_frame, text="Cancelar", command=self.dialog.destroy).pack(side=tk.RIGHT)
+        ttk.Button(button_frame, text="🔄 Atualizar Lista", command=self.refresh_processes, style='Dark.TButton').pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Botões da direita
+        right_buttons = ttk.Frame(button_frame)
+        right_buttons.pack(side=tk.RIGHT)
+        
+        ttk.Button(right_buttons, text="❌ Cancelar", command=self.dialog.destroy, style='Dark.TButton').pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(right_buttons, text="🔗 Anexar Processo", command=self.select_process, style='Dark.TButton').pack(side=tk.RIGHT, padx=(5, 0))
+        
+        # Instrução para o usuário
+        instruction_frame = ttk.Frame(self.dialog)
+        instruction_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
+        
+        instruction_label = ttk.Label(instruction_frame, 
+                                    text="💡 Dica: Duplo clique em um processo para anexar rapidamente", 
+                                    style='Dark.TLabel', 
+                                    font=('Arial', 8))
+        instruction_label.pack()
 
         # Carrega processos
         self.memory_manager = memory_manager
         self.refresh_processes()
 
-        # Bind eventos
-        self.tree.bind('<Double-1>', lambda e: self.select_process())
+        # Bind eventos - corrige duplo clique
+        self.tree.bind('<Double-1>', self.on_double_click)
+        self.tree.bind('<Return>', lambda e: self.select_process())
 
     def refresh_processes(self):
         """Atualiza lista de processos"""
@@ -992,7 +1086,7 @@ class ProcessSelectionDialog:
                     if extras:
                         name_display += f" ({', '.join(extras)})"
                     
-                    # Adiciona à árvore
+                    # Adiciona à árvore com valores corretos
                     self.tree.insert('', tk.END, values=(proc['pid'], name_display))
                     
                 except Exception as e:
@@ -1020,17 +1114,62 @@ class ProcessSelectionDialog:
             messagebox.showerror("Erro na Listagem", error_msg)
 
     def select_process(self):
-        """Seleciona processo"""
+        """Seleciona processo para anexar"""
         selection = self.tree.selection()
         if not selection:
             messagebox.showwarning("Aviso", "Selecione um processo!")
             return
 
-        item = self.tree.item(selection[0])
-        pid = int(item['values'][0])
+        try:
+            item = self.tree.item(selection[0])
+            values = item['values']
+            
+            # Verifica se é um item válido
+            if not values or len(values) < 2:
+                messagebox.showwarning("Aviso", "Item selecionado inválido!")
+                return
+            
+            # Verifica se o primeiro valor é um PID válido
+            pid_str = str(values[0])
+            if pid_str == "..." or pid_str == "" or not pid_str.isdigit():
+                messagebox.showwarning("Aviso", "Selecione um processo válido!")
+                return
+            
+            pid = int(pid_str)
+            process_name = str(values[1])
+            
+            print(f"✓ Processo selecionado: PID {pid} - {process_name}")
+            
+            # Confirma seleção
+            confirm = messagebox.askyesno(
+                "Confirmar Anexação", 
+                f"Deseja anexar ao processo:\n\nPID: {pid}\nNome: {process_name}\n\nConfirmar?"
+            )
+            
+            if confirm:
+                self.result = pid
+                self.dialog.destroy()
+            
+        except (ValueError, IndexError, TypeError) as e:
+            print(f"❌ Erro ao selecionar processo: {e}")
+            messagebox.showerror("Erro", f"Erro ao processar seleção:\n{e}\n\nTente selecionar outro processo.")
+        except Exception as e:
+            print(f"❌ Erro inesperado: {e}")
+            messagebox.showerror("Erro", f"Erro inesperado:\n{e}")
 
-        self.result = pid
-        self.dialog.destroy()
+    def on_double_click(self, event):
+        """Manipula duplo clique na lista de processos"""
+        try:
+            # Obtém item sob o cursor
+            item = self.tree.identify('item', event.x, event.y)
+            if item:
+                # Seleciona o item
+                self.tree.selection_set(item)
+                # Executa anexação
+                self.select_process()
+        except Exception as e:
+            print(f"❌ Erro no duplo clique: {e}")
+            messagebox.showerror("Erro", f"Erro no duplo clique:\n{e}")
 
 class StealthLevelDialog:
     """Diálogo para configurar nível stealth"""

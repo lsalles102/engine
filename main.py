@@ -907,8 +907,53 @@ Use responsavelmente e apenas em processos autorizados.
 """
     print(help_text)
 
+def request_admin_and_restart():
+    """Solicita privilégios administrativos e reinicia o programa"""
+    if platform.system() == "Windows":
+        try:
+            print("🔄 Solicitando privilégios administrativos...")
+            # Reconstrói os argumentos da linha de comando
+            args = ' '.join(sys.argv)
+            
+            # Executa novamente como administrador
+            ctypes.windll.shell32.ShellExecuteW(
+                None, 
+                "runas", 
+                sys.executable, 
+                args, 
+                None, 
+                1
+            )
+            # Encerra a instância atual
+            sys.exit(0)
+        except Exception as e:
+            print(f"❌ Erro ao solicitar privilégios administrativos: {e}")
+            return False
+    else:
+        print("Execute o programa com 'sudo' para obter privilégios administrativos:")
+        print(f"sudo python3 {sys.argv[0]}")
+        return False
+    
+    return True
+
 def main_loop():
     """Laço principal do programa"""
+    # Verifica privilégios no início
+    if not check_admin_privileges():
+        print("⚠️  AVISO: Executando sem privilégios administrativos!")
+        print("Para anexar processos corretamente, privilégios administrativos são necessários.")
+        
+        choice = input("\nDeseja executar como administrador? (y/n): ").lower().strip()
+        if choice == 'y' or choice == 'yes':
+            if request_admin_and_restart():
+                return  # O programa será reiniciado como admin
+            else:
+                print("Continuando sem privilégios administrativos...")
+        else:
+            print("Continuando sem privilégios administrativos...")
+    else:
+        print("✅ Executando com privilégios administrativos")
+
     while True:
         choice = show_main_menu()
 
