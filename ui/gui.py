@@ -21,12 +21,12 @@ from scanner import MemoryScanner, ScanType, DataType, ScanResult
 from stealth import create_stealth_memory_manager, AntiDebugger, demo_stealth_capabilities
 from stealth_config import get_stealth_config, apply_preset, STEALTH_PRESETS
 
-class PyCheatEngineGUI:
+class ProcessDarkGUI:
     """Interface gráfica principal do PyCheatEngine"""
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("PyCheatEngine v1.0.0 - Memory Scanner & Stealth")
+        self.root.title("ProcessDark v1.0.0 - Memory Scanner & Stealth")
         self.root.geometry("1200x800")
         self.root.configure(bg='#2b2b2b')
 
@@ -81,7 +81,7 @@ class PyCheatEngineGUI:
         def show_warning():
             result = messagebox.askyesno(
                 "⚠️ Privilégios Administrativos",
-                "PyCheatEngine não está sendo executado como administrador!\n\n" +
+                "ProcessDark não está sendo executado como administrador!\n\n" +
                 "Para anexar processos corretamente, privilégios administrativos são necessários.\n\n" +
                 "Deseja executar como administrador?\n\n" +
                 "• Clique 'Sim' para reiniciar como administrador\n" +
@@ -216,7 +216,7 @@ class PyCheatEngineGUI:
 
         self.create_results_frame(right_frame)
 
-    def create_process_frame(self, self, parent):
+    def create_process_frame(self, parent):
         """Cria frame de processo"""
         process_frame = ttk.LabelFrame(parent, text="Processo", style='Dark.TFrame')
         process_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
@@ -564,7 +564,7 @@ class PyCheatEngineGUI:
 
             error_msg = f"❌ Erro inesperado durante anexação:\n\n{e}\n\n"
             error_msg += f"🔧 Tente:\n"
-            error_msg += f"1. Reiniciar o PyCheatEngine\n"
+            error_msg += f"1. Reiniciar o ProcessDark\n"
             error_msg += f"2. Executar como administrador\n"
             error_msg += f"3. Escolher outro processo"
 
@@ -1150,7 +1150,7 @@ class PyCheatEngineGUI:
     def show_about(self):
         """Mostra informações sobre o programa"""
         about_text = """
-PyCheatEngine v1.0.0
+ProcessDark v1.0.0
 
 Sistema de Engenharia Reversa e Manipulação de Memória
 
@@ -1167,11 +1167,11 @@ Apenas em processos autorizados.
 
 Desenvolvido para fins educacionais.
         """
-        messagebox.showinfo("Sobre PyCheatEngine", about_text)
+        messagebox.showinfo("Sobre ProcessDark", about_text)
 
     def run(self):
         """Executa a interface gráfica"""
-        self.log_message("PyCheatEngine iniciado - Interface GUI carregada", "success")
+        self.log_message("ProcessDark iniciado - Interface GUI carregada", "success")
         self.log_message("💡 Dica: Anexe a um processo e ative o modo stealth para máxima evasão", "info")
         self.root.mainloop()
 
