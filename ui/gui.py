@@ -234,7 +234,8 @@ class PyCheatEngineGUI:
         button_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
 
         ttk.Button(button_frame, text="Anexar Processo", command=self.attach_process_dialog, style='Dark.TButton').pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(button_frame, text="Atualizar", command=self.update_process_info, style='Dark.TButton').pack(side=tk.LEFT)
+        ttk.Button(button_frame, text="Atualizar", command=self.update_process_info, style='Dark.TButton').pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(button_frame, text="Teste", command=self.test_attachment, style='Dark.TButton').pack(side=tk.LEFT)
 
     def create_stealth_frame(self, parent):
         """Cria frame de stealth"""
@@ -459,63 +460,90 @@ class PyCheatEngineGUI:
 
             # Mostra progresso
             self.log_message("🔄 Tentando anexar com diferentes níveis de acesso...")
-
-            # Força atualização da interface antes da anexação
             self.root.update_idletasks()
 
-            if self.memory_manager.attach_to_process(process_id):
-                # Sucesso na anexação
-                self.scanner = MemoryScanner(self.memory_manager)
-                self.scanner.set_progress_callback(self.update_scan_progress)
+            # Tenta anexar - FORÇA verificação do resultado
+            anexacao_sucesso = self.memory_manager.attach_to_process(process_id)
+            
+            # Verifica múltiplas vezes para garantir
+            if anexacao_sucesso:
+                anexacao_confirmada = self.memory_manager.is_attached()
+                self.log_message(f"🔍 Verificação de anexação: {anexacao_confirmada}")
+                
+                if anexacao_confirmada and self.memory_manager.process_id == process_id:
+                    # SUCESSO CONFIRMADO
+                    self.scanner = MemoryScanner(self.memory_manager)
+                    self.scanner.set_progress_callback(self.update_scan_progress)
 
-                # Se stealth estiver ativo, recria com stealth
-                if self.stealth_enabled:
-                    self.log_message("🥷 Reativando modo stealth...", "stealth")
-                    self.enable_stealth_mode()
+                    # Se stealth estiver ativo, recria com stealth
+                    if self.stealth_enabled:
+                        self.log_message("🥷 Reativando modo stealth...", "stealth")
+                        try:
+                            self.enable_stealth_mode()
+                        except:
+                            pass
 
-                self.log_message(f"✅ SUCESSO! Anexado ao processo {process_id} ({process_name})", "success")
-                
-                # FORÇA atualização da interface IMEDIATAMENTE
-                self.update_interface_state()
-                self.root.update_idletasks()
-                self.root.update()
-                
-                # Feedback visual de sucesso
-                success_msg = f"✅ Anexação bem-sucedida!\n\n"
-                success_msg += f"📋 PID: {process_id}\n"
-                success_msg += f"📝 Nome: {process_name}\n"
-                success_msg += f"🔧 Status: Pronto para scan"
-                if self.stealth_enabled:
-                    success_msg += f"\n🥷 Modo Stealth: Ativo"
-                
-                messagebox.showinfo("Anexação Bem-Sucedida", success_msg)
-                
-                # Atualiza interface mais uma vez após o dialog
-                self.update_interface_state()
-                
-            else:
-                # Falha na anexação - força atualização para mostrar erro
-                self.update_interface_state()
-                self.log_message(f"❌ FALHA ao anexar ao processo {process_id}", "error")
-                
-                error_msg = f"❌ Falha ao anexar ao processo:\n\n"
-                error_msg += f"📋 PID: {process_id}\n"
-                error_msg += f"📝 Nome: {process_name}\n\n"
-                error_msg += f"🔧 Possíveis soluções:\n\n"
-                error_msg += f"1. ⚡ Execute como administrador\n"
-                error_msg += f"2. 🛡️ Processo pode estar protegido\n"
-                error_msg += f"3. 💻 Processo pode ter encerrado\n"
-                error_msg += f"4. 🔒 Antivírus pode estar bloqueando\n\n"
-                error_msg += f"💡 Tente outro processo ou reinicie como admin."
-                
-                messagebox.showerror("Erro de Anexação", error_msg)
+                    self.log_message(f"✅ ANEXAÇÃO CONFIRMADA! PID {process_id} ({process_name})", "success")
+                    
+                    # Atualiza interface MÚLTIPLAS VEZES para garantir
+                    for i in range(3):
+                        self.update_interface_state()
+                        self.root.update_idletasks()
+                        self.root.update()
+                        import time
+                        time.sleep(0.1)
+                    
+                    # Verifica se a interface foi atualizada corretamente
+                    if "Nenhum processo anexado" not in self.process_info_label.cget("text"):
+                        self.log_message("✅ Interface atualizada com sucesso!", "success")
+                        
+                        success_msg = f"✅ Anexação bem-sucedida!\n\n"
+                        success_msg += f"📋 PID: {process_id}\n"
+                        success_msg += f"📝 Nome: {process_name}\n"
+                        success_msg += f"🔧 Status: Pronto para scan"
+                        if self.stealth_enabled:
+                            success_msg += f"\n🥷 Modo Stealth: Ativo"
+                        
+                        messagebox.showinfo("Anexação Bem-Sucedida", success_msg)
+                    else:
+                        self.log_message("⚠️ Interface não foi atualizada corretamente", "warning")
+                        # Força uma última atualização
+                        self.process_info_label.configure(text=f"PID: {process_id} ({process_name})", style='Success.TLabel')
+                        self.status_label.configure(text=f"✅ Anexado ao processo {process_id}")
+                    
+                    return
+                    
+            # Se chegou aqui, anexação falhou
+            self.log_message(f"❌ FALHA na anexação ao processo {process_id}", "error")
+            
+            # Força limpeza do estado
+            self.memory_manager.process_id = None
+            self.memory_manager.process_handle = None
+            self.update_interface_state()
+            
+            error_msg = f"❌ Falha ao anexar ao processo:\n\n"
+            error_msg += f"📋 PID: {process_id}\n"
+            error_msg += f"📝 Nome: {process_name}\n\n"
+            error_msg += f"🔧 Possíveis soluções:\n\n"
+            error_msg += f"1. ⚡ Execute como administrador\n"
+            error_msg += f"2. 🛡️ Processo pode estar protegido\n"
+            error_msg += f"3. 💻 Processo pode ter encerrado\n"
+            error_msg += f"4. 🔒 Antivírus pode estar bloqueando\n\n"
+            error_msg += f"💡 Tente outro processo ou reinicie como admin."
+            
+            messagebox.showerror("Erro de Anexação", error_msg)
 
         except Exception as e:
             self.log_message(f"❌ Erro inesperado ao anexar processo: {e}", "error")
             import traceback
             traceback.print_exc()
             
-            # Força atualização da interface em caso de erro
+            # Limpa estado em caso de erro
+            try:
+                self.memory_manager.process_id = None
+                self.memory_manager.process_handle = None
+            except:
+                pass
             self.update_interface_state()
             
             error_msg = f"❌ Erro inesperado durante anexação:\n\n{e}\n\n"
@@ -920,9 +948,15 @@ class PyCheatEngineGUI:
         """Atualiza estado da interface"""
         print(f"🔄 Atualizando interface state...")
         
-        attached = self.memory_manager and self.memory_manager.is_attached()
-        print(f"   - Memory manager: {self.memory_manager is not None}")
-        print(f"   - Is attached: {attached}")
+        # Verificação mais rigorosa
+        attached = (self.memory_manager is not None and 
+                   self.memory_manager.process_id is not None and
+                   self.memory_manager.is_attached())
+        
+        print(f"   - Memory manager existe: {self.memory_manager is not None}")
+        if self.memory_manager:
+            print(f"   - Process ID: {self.memory_manager.process_id}")
+            print(f"   - Is attached: {attached}")
 
         # Atualiza informações do processo
         if attached:
@@ -936,32 +970,46 @@ class PyCheatEngineGUI:
                 except:
                     process_name = f"Process_{self.memory_manager.process_id}"
                 
-                process_info = f"PID: {self.memory_manager.process_id} ({process_name})"
+                process_info = f"✅ PID: {self.memory_manager.process_id} ({process_name})"
                 print(f"   - Process info: {process_info}")
                 
+                # FORÇA a atualização dos labels
                 self.process_info_label.configure(text=process_info, style='Success.TLabel')
                 self.status_label.configure(text=f"✅ Anexado ao processo {self.memory_manager.process_id}")
+                
+                # Força repaint imediato
+                self.process_info_label.update()
+                self.status_label.update()
                 
                 print("✅ Interface atualizada - processo anexado")
                 
             except Exception as e:
                 print(f"⚠️ Erro ao atualizar info do processo: {e}")
-                process_info = f"PID: {self.memory_manager.process_id}"
+                process_info = f"✅ PID: {self.memory_manager.process_id}"
                 self.process_info_label.configure(text=process_info, style='Success.TLabel')
                 self.status_label.configure(text=f"✅ Anexado ao processo {self.memory_manager.process_id}")
         else:
             print("   - Nenhum processo anexado")
             self.process_info_label.configure(text="❌ Nenhum processo anexado", style='Error.TLabel')
             self.status_label.configure(text="PyCheatEngine pronto")
+            
+            # Força repaint imediato
+            self.process_info_label.update()
+            self.status_label.update()
 
         # Atualiza botões
         scan_enabled = attached and not self.is_scanning
         self.first_scan_btn.configure(state='normal' if scan_enabled else 'disabled')
         self.next_scan_btn.configure(state='normal' if (scan_enabled and self.scan_results) else 'disabled')
 
-        # Força atualização visual
-        self.root.update_idletasks()
-        print(f"🔄 Atualização da interface concluída")
+        # Múltiplas forçadas de atualização visual
+        try:
+            self.root.update_idletasks()
+            self.root.update()
+        except:
+            pass
+            
+        print(f"🔄 Atualização da interface concluída - Status: {'ANEXADO' if attached else 'DESANEXADO'}")
 
     def update_stealth_display(self):
         """Atualiza exibição do status stealth"""
@@ -978,6 +1026,34 @@ class PyCheatEngineGUI:
         """Atualiza informações do processo"""
         self.update_interface_state()
         self.log_message("Informações do processo atualizadas", "info")
+    
+    def test_attachment(self):
+        """Testa o estado atual da anexação"""
+        self.log_message("🧪 Testando estado da anexação...", "info")
+        
+        if self.memory_manager:
+            self.log_message(f"Memory Manager: {'OK' if self.memory_manager else 'NONE'}", "info")
+            self.log_message(f"Process ID: {self.memory_manager.process_id}", "info")
+            self.log_message(f"Is Attached: {self.memory_manager.is_attached()}", "info")
+            
+            if hasattr(self.memory_manager, 'process_handle'):
+                self.log_message(f"Process Handle: {'OK' if self.memory_manager.process_handle else 'NONE'}", "info")
+            
+            # Força atualização da interface
+            self.update_interface_state()
+            
+            # Tenta anexar ao próprio processo como teste
+            import os
+            current_pid = os.getpid()
+            self.log_message(f"Testando anexação ao processo atual (PID {current_pid})...", "info")
+            
+            if self.memory_manager.attach_to_process(current_pid):
+                self.log_message("✅ Teste de anexação: SUCESSO", "success")
+                self.update_interface_state()
+            else:
+                self.log_message("❌ Teste de anexação: FALHOU", "error")
+        else:
+            self.log_message("❌ Memory Manager não existe!", "error")
 
     def export_results(self):
         """Exporta resultados para arquivo"""

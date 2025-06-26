@@ -124,7 +124,17 @@ class MemoryManager:
             print(f"🎯 Anexado com sucesso ao processo {process_id}!")
             print(f"   - Process ID armazenado: {self.process_id}")
             print(f"   - Process handle: {self.process_handle if IS_WINDOWS else 'Linux mode'}")
-            print(f"   - Is attached: {self.is_attached()}")
+            print(f"   - Is attached (primeira verificação): {self.is_attached()}")
+            
+            # Verificação dupla para garantir
+            import time
+            time.sleep(0.1)  # Pequena pausa
+            second_check = self.is_attached()
+            print(f"   - Is attached (segunda verificação): {second_check}")
+            
+            if not second_check:
+                print("❌ Anexação perdida na segunda verificação!")
+                return False
             
             # Teste básico de leitura para confirmar
             try:
@@ -133,10 +143,11 @@ class MemoryManager:
                     print("✓ Teste de leitura básico: OK")
                 else:
                     print("⚠️ Teste de leitura básico: Falhou (normal em alguns casos)")
-            except:
-                print("⚠️ Não foi possível fazer teste de leitura")
+            except Exception as e:
+                print(f"⚠️ Erro no teste de leitura: {e}")
             
-            print(f"✅ Anexação CONFIRMADA para PID {process_id}")
+            print(f"✅ ANEXAÇÃO FINAL CONFIRMADA para PID {process_id}")
+            print(f"   - Estado final: process_id={self.process_id}, handle={'OK' if self.process_handle else 'NONE'}")
             return True
 
         except Exception as e:
